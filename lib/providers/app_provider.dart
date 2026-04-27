@@ -135,8 +135,12 @@ class AppProvider extends ChangeNotifier {
   bool get hasBouquet => _flowers.isNotEmpty;
 
   void generateBouquet(String name) {
-    _inputName = name.toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '');
-    _flowers = getFlowersForName(_inputName);
+    // Türkçe duyarlı upper-case + sadece alfabe harflerini al
+    _inputName = turkishUpperCase(name)
+        .split('')
+        .where((c) => flowerAlphabet.containsKey(c))
+        .join('');
+    _flowers = getFlowersForName(name);
     _currentBouquet = _flowers.isEmpty ? null : Bouquet(
       id: 'b_${DateTime.now().millisecondsSinceEpoch}',
       name: _inputName,

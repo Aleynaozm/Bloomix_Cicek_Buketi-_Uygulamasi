@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
 
@@ -54,10 +53,10 @@ class FlowerCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: SvgPicture.asset(
+                child: Image.asset(
                   flower.assetPath,
                   fit: BoxFit.contain,
-                  placeholderBuilder: (_) => _PlaceholderFlower(flower: flower),
+                  errorBuilder: (_, __, ___) => _PlaceholderFlower(flower: flower),
                 ),
               ),
             ),
@@ -188,11 +187,11 @@ class _BouquetPreviewState extends State<BouquetPreview> with TickerProviderStat
                   child: SizedBox(
                     width: slotW.clamp(40, 100),
                     height: widget.height * 0.88 * heightFraction,
-                    child: SvgPicture.asset(
+                    child: Image.asset(
                       f.assetPath,
                       fit: BoxFit.contain,
                       alignment: Alignment.bottomCenter,
-                      placeholderBuilder: (_) => Align(
+                      errorBuilder: (_, __, ___) => Align(
                         alignment: Alignment.bottomCenter,
                         child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
                           Container(
@@ -316,8 +315,8 @@ void showFlowerDetail(BuildContext context, Flower flower) {
           const SizedBox(height: 24),
           SizedBox(
             height: 160,
-            child: SvgPicture.asset(flower.assetPath, fit: BoxFit.contain,
-              placeholderBuilder: (_) => Center(
+            child: Image.asset(flower.assetPath, fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Center(
                 child: Text(flower.letter, style: TextStyle(fontSize: 80, color: flower.color)),
               ),
             ),

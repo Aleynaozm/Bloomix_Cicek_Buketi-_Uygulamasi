@@ -16,7 +16,7 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
   Widget build(BuildContext context) {
     final filtered = flowerAlphabet.entries.where((e) =>
       _search.isEmpty ||
-      e.key.contains(_search.toUpperCase()) ||
+      e.key.contains(turkishUpperCase(_search)) ||
       e.value.nameTr.toLowerCase().contains(_search.toLowerCase()) ||
       e.value.meaning.toLowerCase().contains(_search.toLowerCase())
     ).toList();

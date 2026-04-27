@@ -194,9 +194,9 @@ class _NameInputCard extends StatelessWidget {
   }
 
   void _go(BuildContext context, String val) {
-    final clean = val.toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '');
-    if (clean.isEmpty) return;
-    context.read<AppProvider>().generateBouquet(clean);
+    final cleaned = val.trim();
+    if (cleaned.isEmpty) return;
+    context.read<AppProvider>().generateBouquet(cleaned);
     Navigator.push(context, MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()));
   }
 }
@@ -209,7 +209,7 @@ class _FeatureGrid extends StatelessWidget {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AlphabetScreen()))),
       _FeatureItem('💐', 'Buket Tasarla', 'İsmini gir, buket hazır', const Color(0xFFFDF0F5),
           () {
-            context.read<AppProvider>().generateBouquet('ROSE');
+            context.read<AppProvider>().generateBouquet('GÜL');
             Navigator.push(context, MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()));
           }),
     ];
