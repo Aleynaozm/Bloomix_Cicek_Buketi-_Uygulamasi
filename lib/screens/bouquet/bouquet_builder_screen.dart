@@ -40,7 +40,9 @@ class BouquetBuilderScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: prov.flowers.isEmpty
                   ? const Center(child: Text('Çiçek yok', style: TextStyle(color: AppColors.textLight)))
-                  : BouquetPreview(flowers: prov.flowers, wrapper: prov.wrapper),
+                  : Center(
+                      child: BouquetPreview(flowers: prov.flowers, wrapper: prov.wrapper),
+                    ),
             ),
           ),
 

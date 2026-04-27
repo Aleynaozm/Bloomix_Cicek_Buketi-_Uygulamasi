@@ -76,7 +76,7 @@ class HomeScreen extends StatelessWidget {
                       onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AlphabetScreen()))),
                     const SizedBox(height: 14),
                     SizedBox(
-                      height: 130,
+                      height: 160,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: 6,
@@ -84,9 +84,12 @@ class HomeScreen extends StatelessWidget {
                         itemBuilder: (_, i) {
                           final entries = flowerAlphabet.entries.toList();
                           final f = entries[i * 4].value;
-                          return GestureDetector(
-                            onTap: () => showFlowerDetail(context, f),
-                            child: FlowerCard(flower: f, size: 72),
+                          return SizedBox(
+                            width: 80,
+                            child: GestureDetector(
+                              onTap: () => showFlowerDetail(context, f),
+                              child: FlowerCard(flower: f, size: 72),
+                            ),
                           );
                         },
                       ),
@@ -166,7 +169,7 @@ class _NameInputCard extends StatelessWidget {
                   textCapitalization: TextCapitalization.characters,
                   style: const TextStyle(letterSpacing: 3, fontWeight: FontWeight.w600, color: AppColors.textDark),
                   decoration: InputDecoration(
-                    hintText: 'AYŞE, EMİR, LALE...',
+                    hintText: '...',
                     hintStyle: TextStyle(color: AppColors.textLight.withOpacity(0.5), letterSpacing: 1, fontSize: 13),
                     fillColor: AppColors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),

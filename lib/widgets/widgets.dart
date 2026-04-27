@@ -65,8 +65,13 @@ class FlowerCard extends StatelessWidget {
           Text(flower.letter, style: TextStyle(
             fontSize: 13, fontWeight: FontWeight.w700, color: flower.color,
           )),
-          Text(flower.nameTr, style: const TextStyle(fontSize: 10, color: AppColors.textLight),
-            overflow: TextOverflow.ellipsis),
+          Text(
+            flower.nameTr,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 10, color: AppColors.textLight),
+          ),
         ],
       ),
     );

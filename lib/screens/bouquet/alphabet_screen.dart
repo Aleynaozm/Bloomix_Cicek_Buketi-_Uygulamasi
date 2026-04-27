@@ -42,7 +42,7 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
           child: GridView.builder(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, childAspectRatio: 0.75,
+              crossAxisCount: 3, childAspectRatio: 0.7,
               crossAxisSpacing: 12, mainAxisSpacing: 12,
             ),
             itemCount: filtered.length,
@@ -56,24 +56,50 @@ class _AlphabetScreenState extends State<AlphabetScreen> {
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: f.color.withOpacity(0.25)),
                   ),
-                  child: Column(children: [
-                    Expanded(child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 14, 8, 4),
-                      child: FlowerCard(flower: f, size: 65),
-                    )),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      decoration: BoxDecoration(
-                        color: f.color.withOpacity(0.1),
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 12, 8, 6),
+                          child: Image.asset(
+                            f.assetPath,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Text(
+                                f.letter,
+                                style: TextStyle(fontSize: 36, fontWeight: FontWeight.w700, color: f.color),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Column(children: [
-                        Text(f.letter, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: f.color)),
-                        Text(f.nameTr, style: const TextStyle(fontSize: 10, color: AppColors.textLight)),
-                      ]),
-                    ),
-                  ]),
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: f.color.withOpacity(0.1),
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              f.letter,
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: f.color),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              f.nameTr,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 9.5, color: AppColors.textLight),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

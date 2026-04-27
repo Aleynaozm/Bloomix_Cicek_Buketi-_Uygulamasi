@@ -50,11 +50,7 @@ String turkishUpperCase(String s) {
 List<Flower> getFlowersForName(String name) {
   final upper = turkishUpperCase(name);
   // Sadece harfleri al (Türkçe dahil), boşluk ve sayıları çıkar
+  // Tekrar eden harfler bukete birden fazla kez eklenir (ALEYNA → A, L, E, Y, N, A)
   final letters = upper.split('').where((c) => flowerAlphabet.containsKey(c)).toList();
-  // Tekrar eden harfleri tek seferde göster
-  final seen = <String>{};
-  return letters
-      .where((l) => seen.add(l))
-      .map((l) => flowerAlphabet[l]!)
-      .toList();
+  return letters.map((l) => flowerAlphabet[l]!).toList();
 }
