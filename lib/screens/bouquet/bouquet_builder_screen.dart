@@ -41,39 +41,67 @@ class BouquetBuilderScreen extends StatelessWidget {
               child: prov.flowers.isEmpty
                   ? const Center(child: Text('Çiçek yok', style: TextStyle(color: AppColors.textLight)))
                   : Center(
-                      child: BouquetPreview(flowers: prov.flowers, wrapper: prov.wrapper),
+                      child: BouquetPreview(
+                        flowers: prov.flowers,
+                        wrapper: prov.wrapper,
+                        height: 380,
+                      ),
                     ),
             ),
           ),
 
-          // Flower info strip
+          // İsim — büyük renkli harflerle altta tam yazılı
           if (prov.flowers.isNotEmpty)
-            SizedBox(
-              height: 90,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: prov.flowers.length,
-                itemBuilder: (_, i) {
-                  final f = prov.flowers[i];
-                  return GestureDetector(
-                    onTap: () => showFlowerDetail(context, f),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: f.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(50),
-                        border: Border.all(color: f.color.withOpacity(0.3)),
-                      ),
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(f.letter, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: f.color)),
-                        const SizedBox(height: 2),
-                        Text(f.nameTr, style: const TextStyle(fontSize: 10, color: AppColors.textLight)),
-                      ]),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    children: [
+                      for (final f in prov.flowers)
+                        TextSpan(
+                          text: f.letter,
+                          style: TextStyle(
+                            fontFamily: 'DM Serif Display',
+                            fontSize: 36,
+                            color: f.color,
+                            letterSpacing: 6,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Çiçek chip'leri — Wrap ile her zaman tamamı görünür
+          if (prov.flowers.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 6,
+                runSpacing: 6,
+                children: prov.flowers.map((f) => GestureDetector(
+                  onTap: () => showFlowerDetail(context, f),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: f.color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(50),
+                      border: Border.all(color: f.color.withOpacity(0.3)),
                     ),
-                  );
-                },
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(f.letter,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: f.color)),
+                      const SizedBox(width: 5),
+                      Text(f.nameTr,
+                        style: const TextStyle(fontSize: 10, color: AppColors.textLight)),
+                    ]),
+                  ),
+                )).toList(),
               ),
             ),
 

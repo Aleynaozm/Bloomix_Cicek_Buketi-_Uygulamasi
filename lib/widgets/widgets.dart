@@ -160,62 +160,139 @@ class _BouquetPreviewState extends State<BouquetPreview> with TickerProviderStat
   Widget build(BuildContext context) {
     final n = widget.flowers.length;
     if (n == 0) return SizedBox(height: widget.height);
-    final slotW = (MediaQuery.of(context).size.width - 48) / n;
 
-    return SizedBox(
-      height: widget.height,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          // wrapper
-          Positioned(
-            bottom: 0,
-            child: CustomPaint(
-              size: Size((slotW * n).clamp(100, 300), 80),
-              painter: WrapperPainter(color: widget.wrapper.color),
-            ),
-          ),
-          // flowers
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: widget.flowers.asMap().entries.map((e) {
-              final i = e.key;
-              final f = e.value;
-              final sway = (i - (n - 1) / 2) * 0.12;
-              final heightFraction = i % 2 == 0 ? 1.0 : 0.88;
-              return ScaleTransition(
-                scale: i < _anims.length ? _anims[i] : const AlwaysStoppedAnimation(1.0),
-                alignment: Alignment.bottomCenter,
-                child: Transform.rotate(
-                  angle: sway,
-                  child: SizedBox(
-                    width: slotW.clamp(40, 100),
-                    height: widget.height * 0.88 * heightFraction,
-                    child: Image.asset(
-                      f.assetPath,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.bottomCenter,
-                      errorBuilder: (_, __, ___) => Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                          Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(shape: BoxShape.circle,
-                              color: f.color.withOpacity(0.2)),
-                            child: Center(child: Text(f.letter, style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700, color: f.color))),
-                          ),
-                          Container(width: 2.5, height: 70, color: AppColors.green.withOpacity(0.5)),
-                        ]),
-                      ),
-                    ),
+    // Sargı boyutu — geniş render, kanvası dolduracak şekilde
+    final wrapperW = widget.height * 1.5;
+    final wrapperH = widget.height * 1.5;
+    final wrapperShiftDown = widget.height * 0.06;
+
+    // Çiçek boyutu — büyük, sıkı kümelenmiş buket
+    final flowerSize = switch (n) {
+      1 => 210.0,
+      2 => 175.0,
+      3 => 155.0,
+      4 => 140.0,
+      5 => 125.0,
+      6 => 115.0,
+      7 => 105.0,
+      _ => 95.0,
+    };
+    // Overlap oranı — n arttıkça sıkı buket için artıyor
+    final overlapRatio = (n <= 2) ? 0.3 : (n <= 4) ? 0.5 : (n <= 6) ? 0.62 : 0.7;
+    final stepX = flowerSize * (1 - overlapRatio); // bitişik çiçekler arası mesafe
+    final clusterW = (n - 1) * stepX + flowerSize;
+    final clusterH = flowerSize * 1.35; // dome efekti için ekstra yükseklik
+    // Cluster tabanı — sargının açıklığında
+    final mouthFromBottom = widget.height * 0.5;
+
+    // Çiçeklerin Z-order'ı: dış çiçekler arkada, merkez önde
+    final order = List.generate(n, (i) => i);
+    order.sort((a, b) {
+      final da = (a - (n - 1) / 2.0).abs();
+      final db = (b - (n - 1) / 2.0).abs();
+      return db.compareTo(da); // outer first (back)
+    });
+
+    return ClipRect(
+      child: SizedBox(
+        width: double.infinity,
+        height: widget.height,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.hardEdge,
+          children: [
+            // 1. Sargı kağıdı
+            Transform.translate(
+              offset: Offset(0, wrapperShiftDown),
+              child: ColorFiltered(
+                colorFilter: ColorFilter.mode(widget.wrapper.color, BlendMode.modulate),
+                child: Image.asset(
+                  'assets/images/wrapper.png',
+                  width: wrapperW,
+                  height: wrapperH,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => CustomPaint(
+                    size: const Size(240, 100),
+                    painter: WrapperPainter(color: widget.wrapper.color),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-        ],
+              ),
+            ),
+
+            // 2. Çiçek cluster'ı — sıkı kümelenmiş, dome şeklinde
+            Padding(
+              padding: EdgeInsets.only(bottom: mouthFromBottom),
+              child: SizedBox(
+                width: clusterW,
+                height: clusterH,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: order.map((i) {
+                    // X pozisyonu: bitişik çiçekler stepX uzaklıkta
+                    final leftEdge = i * stepX;
+                    final centerOffset = i - (n - 1) / 2.0;
+                    final norm = n > 1 ? centerOffset / ((n - 1) / 2.0) : 0.0; // -1..1
+                    // Dome: merkez çiçekler yukarı (back row), kenarlar aşağı (front row)
+                    final yRaise = (1 - norm.abs()) * flowerSize * 0.22;
+                    // Hafif yelpaze eğimi
+                    final angle = norm * 0.12;
+
+                    return Positioned(
+                      left: leftEdge,
+                      bottom: yRaise,
+                      child: ScaleTransition(
+                        scale: i < _anims.length
+                            ? _anims[i]
+                            : const AlwaysStoppedAnimation(1.0),
+                        alignment: Alignment.bottomCenter,
+                        child: Transform.rotate(
+                          angle: angle,
+                          alignment: Alignment.bottomCenter,
+                          child: SizedBox(
+                            width: flowerSize,
+                            height: flowerSize,
+                            child: Image.asset(
+                              widget.flowers[i].assetPath,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Container(
+                                      width: 36, height: 36,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: widget.flowers[i].color.withOpacity(0.2),
+                                      ),
+                                      child: Center(
+                                        child: Text(widget.flowers[i].letter,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: widget.flowers[i].color,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 2.5, height: 30,
+                                      color: AppColors.green.withOpacity(0.5),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

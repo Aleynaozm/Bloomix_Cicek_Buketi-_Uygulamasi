@@ -20,36 +20,36 @@ class Flower {
 }
 
 // ── Wrapper ──────────────────────────────────────────────
-enum WrapperStyle { white, kraft, black, pink, sage }
+enum WrapperStyle { pastelPink, pastelBlue, pastelLilac, pastelGreen, pastelYellow }
 
 extension WrapperStyleExt on WrapperStyle {
   String get label {
     switch (this) {
-      case WrapperStyle.white:
-        return 'Beyaz Kraft';
-      case WrapperStyle.kraft:
-        return 'Naturel Kraft';
-      case WrapperStyle.black:
-        return 'Siyah';
-      case WrapperStyle.pink:
-        return 'Pembe';
-      case WrapperStyle.sage:
-        return 'Adaçayı Yeşili';
+      case WrapperStyle.pastelPink:
+        return 'Pastel Pembe';
+      case WrapperStyle.pastelBlue:
+        return 'Pastel Mavi';
+      case WrapperStyle.pastelLilac:
+        return 'Pastel Lila';
+      case WrapperStyle.pastelGreen:
+        return 'Pastel Yeşil';
+      case WrapperStyle.pastelYellow:
+        return 'Pastel Sarı';
     }
   }
 
   Color get color {
     switch (this) {
-      case WrapperStyle.white:
-        return const Color(0xFFF5F0E8);
-      case WrapperStyle.kraft:
-        return const Color(0xFFC8A882);
-      case WrapperStyle.black:
-        return const Color(0xFF2C2C2C);
-      case WrapperStyle.pink:
-        return const Color(0xFFF4C0D1);
-      case WrapperStyle.sage:
-        return const Color(0xFF8FAF8A);
+      case WrapperStyle.pastelPink:
+        return const Color(0xFFF8CDD8);
+      case WrapperStyle.pastelBlue:
+        return const Color(0xFFBDDDF0);
+      case WrapperStyle.pastelLilac:
+        return const Color(0xFFD8C5EC);
+      case WrapperStyle.pastelGreen:
+        return const Color(0xFFC8E2C5);
+      case WrapperStyle.pastelYellow:
+        return const Color(0xFFF8E8B8);
     }
   }
 }
@@ -106,7 +106,7 @@ class Bouquet {
     required this.id,
     required this.name,
     required this.flowers,
-    this.wrapper = WrapperStyle.white,
+    this.wrapper = WrapperStyle.pastelPink,
     this.size = BouquetSize.medium,
     this.giftMessage,
     this.isFavorite = false,

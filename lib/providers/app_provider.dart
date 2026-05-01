@@ -123,7 +123,7 @@ class AppProvider extends ChangeNotifier {
   // ── Bouquet Builder ───────────────────────────────────
   String _inputName = '';
   List<Flower> _flowers = [];
-  WrapperStyle _wrapper = WrapperStyle.white;
+  WrapperStyle _wrapper = WrapperStyle.pastelPink;
   BouquetSize _size = BouquetSize.medium;
   Bouquet? _currentBouquet;
 
