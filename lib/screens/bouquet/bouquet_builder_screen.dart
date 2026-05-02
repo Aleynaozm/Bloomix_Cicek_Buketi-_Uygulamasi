@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/widgets.dart';
 import 'customize_screen.dart';
-import '../shop/checkout_screen.dart';
 
 class BouquetBuilderScreen extends StatelessWidget {
   const BouquetBuilderScreen({super.key});
@@ -105,6 +105,39 @@ class BouquetBuilderScreen extends StatelessWidget {
               ),
             ),
 
+          // Fiyat + brick özet barı
+          if (prov.hasBouquet && prov.currentBouquet != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.roseLight.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Row(children: [
+                    const Icon(Icons.extension_rounded,
+                        size: 18, color: AppColors.rose),
+                    const SizedBox(width: 6),
+                    Text('${prov.currentBouquet!.legoCount} brick',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark)),
+                    Text('  •  ${prov.size.label}',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textLight)),
+                  ]),
+                  Text('₺${prov.currentBouquet!.price.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.rose)),
+                ]),
+              ),
+            ),
+
           // Buttons
           Padding(
             padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
@@ -120,10 +153,29 @@ class BouquetBuilderScreen extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: prov.hasBouquet
-                      ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckoutScreen()))
+                      ? () {
+                          prov.addToCart(prov.currentBouquet!);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: AppColors.rose,
+                              content: Row(children: [
+                                const Icon(Icons.check_circle_outline_rounded,
+                                    color: Colors.white),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: Text(
+                                        '${prov.currentBouquet!.name} sepete eklendi',
+                                        style: const TextStyle(
+                                            color: Colors.white))),
+                              ]),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       : null,
-                  icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                  label: const Text('Sipariş Ver'),
+                  icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                  label: const Text('Sepete Ekle'),
                 ),
               ),
             ]),

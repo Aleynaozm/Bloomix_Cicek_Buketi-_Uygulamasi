@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
 
@@ -6,22 +7,20 @@ import '../models/models.dart';
 class BloomixLogo extends StatelessWidget {
   final double size;
   final bool dark;
-  const BloomixLogo({super.key, this.size = 28, this.dark = false});
+  final Color? color;
+  const BloomixLogo({super.key, this.size = 28, this.dark = false, this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('✿', style: TextStyle(fontSize: size * 0.9, color: AppColors.rose)),
-        const SizedBox(width: 6),
-        Text('Bloomix', style: TextStyle(
-          fontFamily: 'DM Serif Display',
-          fontSize: size,
-          color: dark ? AppColors.white : AppColors.textDark,
-          fontWeight: FontWeight.w400,
-        )),
-      ],
+    final c = color ?? (dark ? AppColors.white : AppColors.rose);
+    return Text(
+      'Bloomix',
+      style: GoogleFonts.dmSerifDisplay(
+        fontSize: size,
+        color: c,
+        height: 1.0,
+        letterSpacing: 0.5,
+      ),
     );
   }
 }
@@ -350,6 +349,93 @@ class PrimaryButton extends StatelessWidget {
                 if (icon != null) ...[Icon(icon, size: 18), const SizedBox(width: 8)],
                 Text(label),
               ]),
+      ),
+    );
+  }
+}
+
+// ── Gradient Button ───────────────────────────────────────────────────────
+/// Pembe gradient'li, dolu butonlar (onboarding "Sonraki", welcome "Kayıt Ol" gibi).
+class GradientButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final bool loading;
+  final IconData? icon;
+  final double height;
+  final List<Color>? colors;
+
+  const GradientButton({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.loading = false,
+    this.icon,
+    this.height = 56,
+    this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colors ??
+        [
+          AppColors.roseLight, // #FFB8D4
+          AppColors.rose,      // #FF74B3
+        ];
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: c,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(height / 2),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.rose.withOpacity(0.30),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: loading ? null : onPressed,
+            borderRadius: BorderRadius.circular(height / 2),
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (icon != null) ...[
+                          Icon(icon, size: 18, color: AppColors.white),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          label,
+                          style: GoogleFonts.poppins(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }

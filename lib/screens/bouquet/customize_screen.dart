@@ -79,7 +79,7 @@ class CustomizeScreen extends StatelessWidget {
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(s.label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
                         color: sel ? AppColors.rose : AppColors.textDark)),
-                      Text('${s.count} çiçek', style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+                      Text('${s.legoCount} brick', style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
                     ])),
                     Text('₺${s.price.toStringAsFixed(0)}', style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700,

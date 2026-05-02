@@ -4,19 +4,23 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/widgets.dart';
+import '../../widgets/app_drawer.dart';
 import '../../data/flower_data.dart';
 import '../bouquet/bouquet_builder_screen.dart';
 import '../bouquet/alphabet_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final VoidCallback? onShowOnboarding;
-  const HomeScreen({super.key, this.onShowOnboarding});
+  /// Sepet sekmesine geçiş — MainShell paslar.
+  final VoidCallback? onGoCart;
+  const HomeScreen({super.key, this.onShowOnboarding, this.onGoCart});
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(builder: (ctx, prov, _) {
       final user = prov.user;
       return Scaffold(
+        drawer: AppDrawer(onShowOnboarding: onShowOnboarding),
         body: CustomScrollView(
           slivers: [
             SliverAppBar(
@@ -24,14 +28,16 @@ class HomeScreen extends StatelessWidget {
               backgroundColor: AppColors.cream,
               elevation: 0,
               scrolledUnderElevation: 0,
-              title: const BloomixLogo(),
+              leading: Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu_rounded),
+                  tooltip: 'Menü',
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                ),
+              ),
+              title: const BloomixLogo(size: 24),
+              centerTitle: true,
               actions: [
-                if (onShowOnboarding != null)
-                  IconButton(
-                    icon: const Icon(Icons.help_outline_rounded),
-                    tooltip: 'Tanıtımı Tekrar İzle',
-                    onPressed: onShowOnboarding,
-                  ),
                 Stack(
                   children: [
                     IconButton(

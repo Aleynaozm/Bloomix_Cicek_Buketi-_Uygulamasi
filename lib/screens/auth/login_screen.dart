@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
@@ -36,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _email.text,
         password: _password.text,
       );
-      // AuthGate stream'i otomatik olarak yönlendirir; burada navigation yok.
+      _popToRoot();
     } on AuthException catch (e) {
       _showError(_friendlyError(e));
     } catch (e) {
@@ -50,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loadingGoogle = true);
     try {
       await SupabaseService.signInWithGoogle();
+      _popToRoot();
     } on AuthException catch (e) {
       _showError(_friendlyError(e));
     } catch (e) {
@@ -57,6 +57,13 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loadingGoogle = false);
     }
+  }
+
+  /// Auth başarılı sonrası push edilmiş Welcome+Login route'larını kapat;
+  /// AuthGate root'ta MainShell'i render etsin.
+  void _popToRoot() {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
   String _friendlyError(AuthException e) {
@@ -166,8 +173,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
     return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: canPop
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            )
+          : null,
       body: SafeArea(
+        top: !canPop,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
           child: Form(
@@ -175,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 48),
+                SizedBox(height: canPop ? 8 : 48),
                 const Center(child: BloomixLogo(size: 32)),
                 const SizedBox(height: 8),
                 Center(
@@ -186,18 +207,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 36),
 
-                // ─ OAuth butonu — web'de Client ID gerektiği için gizliyoruz ─
-                if (!kIsWeb) ...[
-                  _SocialButton(
-                    label: 'Google ile Devam Et',
-                    loading: _loadingGoogle,
-                    icon: const _GoogleIcon(),
-                    onPressed: _signInWithGoogle,
-                  ),
-                  const SizedBox(height: 24),
-                  _OrDivider(),
-                  const SizedBox(height: 24),
-                ],
+                // ─ OAuth butonu ─
+                _SocialButton(
+                  label: 'Google ile Devam Et',
+                  loading: _loadingGoogle,
+                  icon: const _GoogleIcon(),
+                  onPressed: _signInWithGoogle,
+                ),
+                const SizedBox(height: 24),
+                _OrDivider(),
+                const SizedBox(height: 24),
 
                 // ─ Email / şifre ─
                 TextFormField(

@@ -3,9 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   static const cream = Color(0xFFFAF7F2);
-  static const rose = Color(0xFFD4537E);
-  static const roseDark = Color(0xFFB03D65);
-  static const roseLight = Color(0xFFF4C0D1);
+  // Figma marka pembesi
+  static const rose = Color(0xFFFF74B3);
+  static const roseDark = Color(0xFFE85A99);
+  static const roseLight = Color(0xFFFFB8D4);
   static const green = Color(0xFF4A7C59);
   static const greenLight = Color(0xFFE8F5ED);
   static const brown = Color(0xFF8B6F47);
@@ -29,24 +30,36 @@ class AppTheme {
         secondary: AppColors.green,
         surface: AppColors.cream,
       ),
-      textTheme: GoogleFonts.dmSerifDisplayTextTheme(base.textTheme).copyWith(
-        displayLarge: GoogleFonts.dmSerifDisplay(fontSize: 42, color: AppColors.textDark),
-        displayMedium: GoogleFonts.dmSerifDisplay(fontSize: 34, color: AppColors.textDark),
-        headlineLarge: GoogleFonts.dmSerifDisplay(fontSize: 28, color: AppColors.textDark),
-        headlineMedium: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.textDark),
-        titleLarge: GoogleFonts.dmSans(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.textDark),
-        titleMedium: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textDark),
-        bodyLarge: GoogleFonts.dmSans(fontSize: 15, color: AppColors.textMid, height: 1.6),
-        bodyMedium: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textMid, height: 1.5),
-        bodySmall: GoogleFonts.dmSans(fontSize: 11, color: AppColors.textLight),
-        labelLarge: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+      // Body & UI = Poppins, marka adı için ayrıca DM Serif Display.
+      textTheme: GoogleFonts.poppinsTextTheme(base.textTheme).copyWith(
+        // "Bloomix" gibi marka başlıkları için serif aile (manuel kullanılacak)
+        displayLarge: GoogleFonts.dmSerifDisplay(fontSize: 48, color: AppColors.rose),
+        displayMedium: GoogleFonts.dmSerifDisplay(fontSize: 36, color: AppColors.rose),
+        // Onboarding & welcome başlıkları
+        headlineLarge: GoogleFonts.poppins(
+            fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textDark, height: 1.25),
+        headlineMedium: GoogleFonts.poppins(
+            fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textDark, height: 1.3),
+        titleLarge: GoogleFonts.poppins(
+            fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textDark),
+        titleMedium: GoogleFonts.poppins(
+            fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textDark),
+        bodyLarge: GoogleFonts.poppins(
+            fontSize: 15, color: AppColors.textMid, height: 1.55),
+        bodyMedium: GoogleFonts.poppins(
+            fontSize: 14, color: AppColors.textMid, height: 1.55),
+        bodySmall: GoogleFonts.poppins(
+            fontSize: 12, color: AppColors.textLight, height: 1.5),
+        labelLarge: GoogleFonts.poppins(
+            fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.3),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.cream,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        titleTextStyle: GoogleFonts.dmSerifDisplay(fontSize: 20, color: AppColors.textDark),
+        titleTextStyle: GoogleFonts.poppins(
+            fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textDark),
         iconTheme: const IconThemeData(color: AppColors.textDark, size: 22),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -55,8 +68,8 @@ class AppTheme {
           foregroundColor: AppColors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          textStyle: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -64,8 +77,8 @@ class AppTheme {
           foregroundColor: AppColors.rose,
           side: const BorderSide(color: AppColors.rose, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          textStyle: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          textStyle: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -76,8 +89,8 @@ class AppTheme {
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppColors.border)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.rose, width: 1.5)),
         errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.red)),
-        labelStyle: GoogleFonts.dmSans(color: AppColors.textLight, fontSize: 14),
-        hintStyle: GoogleFonts.dmSans(color: AppColors.textLight.withOpacity(0.6), fontSize: 14),
+        labelStyle: GoogleFonts.poppins(color: AppColors.textLight, fontSize: 14),
+        hintStyle: GoogleFonts.poppins(color: AppColors.textLight.withOpacity(0.6), fontSize: 14),
       ),
       cardTheme: CardThemeData(
         color: AppColors.white,
@@ -89,8 +102,8 @@ class AppTheme {
         backgroundColor: AppColors.white,
         selectedItemColor: AppColors.rose,
         unselectedItemColor: AppColors.textLight,
-        selectedLabelStyle: GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: GoogleFonts.dmSans(fontSize: 11),
+        selectedLabelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 11),
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),

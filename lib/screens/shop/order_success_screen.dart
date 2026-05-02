@@ -68,9 +68,12 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen>
                 Text('Sipariş Detayı', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 16),
                 _InfoRow('Sipariş No', o.id),
-                _InfoRow('Buket', o.bouquet.name),
-                _InfoRow('Boyut', o.bouquet.size.label),
-                _InfoRow('Ambalaj', o.bouquet.wrapper.label),
+                _InfoRow('Ürün',
+                    o.items.length == 1
+                        ? o.firstBouquet.name
+                        : '${o.items.length} farklı buket'),
+                _InfoRow('Toplam Adet', '${o.totalQty}'),
+                _InfoRow('Toplam Brick', '${o.totalLego}'),
                 _InfoRow('Alıcı', o.recipientName),
                 _InfoRow('Durum', o.status.label, valueColor: AppColors.green),
                 const Divider(height: 20),

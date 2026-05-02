@@ -143,6 +143,56 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Cart ─────────────────────────────────────────────────────────────────
+  final List<CartItem> _cart = [];
+  List<CartItem> get cart => List.unmodifiable(_cart);
+
+  /// Sepetteki toplam adet (her line item'ın qty toplamı).
+  int get cartCount => _cart.fold(0, (s, it) => s + it.qty);
+
+  /// Sepetin toplam fiyatı (TL).
+  double get cartTotal => _cart.fold(0.0, (s, it) => s + it.lineTotal);
+
+  /// Sepetteki toplam lego brick adedi.
+  int get cartLegoCount => _cart.fold(0, (s, it) => s + it.lineLegoCount);
+
+  /// Aynı bouquet ID zaten varsa adet artar; yoksa yeni satır.
+  void addToCart(Bouquet b, {int qty = 1}) {
+    final idx = _cart.indexWhere((it) => it.bouquet.id == b.id);
+    if (idx >= 0) {
+      _cart[idx] = _cart[idx].copyWith(qty: _cart[idx].qty + qty);
+    } else {
+      _cart.add(CartItem(
+        id: 'c_${DateTime.now().millisecondsSinceEpoch}',
+        bouquet: b,
+        qty: qty,
+        addedAt: DateTime.now(),
+      ));
+    }
+    notifyListeners();
+  }
+
+  void removeFromCart(String cartItemId) {
+    _cart.removeWhere((it) => it.id == cartItemId);
+    notifyListeners();
+  }
+
+  void updateCartQty(String cartItemId, int qty) {
+    final idx = _cart.indexWhere((it) => it.id == cartItemId);
+    if (idx < 0) return;
+    if (qty <= 0) {
+      _cart.removeAt(idx);
+    } else {
+      _cart[idx] = _cart[idx].copyWith(qty: qty);
+    }
+    notifyListeners();
+  }
+
+  void clearCart() {
+    _cart.clear();
+    notifyListeners();
+  }
+
   // ── Notifications ─────────────────────────────────────────────────────────
   final List<AppNotification> _notifications = [
     AppNotification(
@@ -168,25 +218,30 @@ class AppProvider extends ChangeNotifier {
   final List<Order> _orders = [];
   List<Order> get orders => List.unmodifiable(_orders.reversed.toList());
 
-  Order placeOrder({
+  /// Sepetteki tüm buketleri tek bir order'a çevirir.
+  /// Cart boşsa null döner. Order başarılı olunca cart temizlenir.
+  Order? placeOrder({
     required String recipientName,
     required String address,
     required String phone,
     required String email,
     String? giftMessage,
   }) {
+    if (_cart.isEmpty) return null;
+    final snapshot = List<CartItem>.from(_cart);
     final order = Order(
       id: 'BLX-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
-      bouquet: _currentBouquet!,
+      items: snapshot,
       recipientName: recipientName,
       address: address,
       phone: phone,
       email: email,
       giftMessage: giftMessage,
       createdAt: DateTime.now(),
-      total: _currentBouquet!.price,
+      total: snapshot.fold(0.0, (s, it) => s + it.lineTotal),
     );
     _orders.add(order);
+    _cart.clear();
     _notifications.insert(
       0,
       AppNotification(

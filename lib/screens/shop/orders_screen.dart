@@ -41,10 +41,15 @@ class OrdersScreen extends StatelessWidget {
                         ),
                       ]),
                       const SizedBox(height: 10),
-                      Text(o.bouquet.name, style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontSize: 22, letterSpacing: 3, color: AppColors.rose)),
+                      Text(
+                        o.items.length == 1
+                            ? o.firstBouquet.name
+                            : '${o.firstBouquet.name} +${o.items.length - 1} daha',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontSize: 22, letterSpacing: 3, color: AppColors.rose),
+                      ),
                       const SizedBox(height: 4),
-                      Text('${o.bouquet.size.label} • ${o.bouquet.wrapper.label} • ${o.bouquet.flowers.length} çiçek',
+                      Text('${o.totalQty} ürün • ${o.totalLego} brick',
                         style: Theme.of(context).textTheme.bodySmall),
                       const SizedBox(height: 10),
                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

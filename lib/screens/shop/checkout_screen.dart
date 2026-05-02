@@ -40,7 +40,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(builder: (ctx, prov, _) {
-      final bouquet = prov.currentBouquet!;
+      // Sepet kaynaklı checkout — cart boşsa kullanıcı bir önceki ekrana döner.
+      if (prov.cart.isEmpty) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Sipariş Ver')),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('🛒', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 16),
+                Text('Sepetin boş', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text('Önce bir buket tasarlayıp sepete ekle.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium),
+              ]),
+            ),
+          ),
+        );
+      }
+      final cartItems = prov.cart;
+      final cartTotal = prov.cartTotal;
       return Scaffold(
         appBar: AppBar(
           title: const Text('Sipariş Ver'),
@@ -67,7 +88,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           cardExpCtrl: _cardExpCtrl, cvvCtrl: _cvvCtrl,
                           obscureCvv: _obscureCvv,
                           onToggleCvv: () => setState(() => _obscureCvv = !_obscureCvv))
-                      : _ReviewStep(bouquet: bouquet, name: _nameCtrl.text, address: _addressCtrl.text),
+                      : _ReviewStep(items: cartItems, total: cartTotal, name: _nameCtrl.text, address: _addressCtrl.text),
             ),
           ),
 
@@ -115,6 +136,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         giftMessage: _msgCtrl.text.isEmpty ? null : _msgCtrl.text,
       );
       setState(() => _loading = false);
+      if (order == null) return; // cart boştu — bir şey yapma
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => OrderSuccessScreen(order: order)));
     }
   }
@@ -352,26 +374,54 @@ class _BankRow extends StatelessWidget {
 }
 
 class _ReviewStep extends StatelessWidget {
-  final dynamic bouquet;
+  final List<CartItem> items;
+  final double total;
   final String name, address;
-  const _ReviewStep({required this.bouquet, required this.name, required this.address});
+  const _ReviewStep({required this.items, required this.total, required this.name, required this.address});
 
   @override
   Widget build(BuildContext context) {
+    final totalLego = items.fold<int>(0, (s, it) => s + it.lineLegoCount);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Sipariş Özeti', style: Theme.of(context).textTheme.headlineMedium),
       const SizedBox(height: 20),
+
+      // Cart items
       Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border)),
         child: Column(children: [
-          _Row('Buket', bouquet.name),
-          _Row('Boyut', bouquet.size.label),
-          _Row('Ambalaj', bouquet.wrapper.label),
-          _Row('Teslim', name),
+          ...items.map((it) {
+            final b = it.bouquet;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.roseLight.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: const Center(child: Text('💐', style: TextStyle(fontSize: 22))),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(b.name, style: TextStyle(fontSize: 14,
+                    fontWeight: FontWeight.w700, color: AppColors.rose, letterSpacing: 1.5)),
+                  const SizedBox(height: 2),
+                  Text('${b.size.label} • ${b.wrapper.label}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+                  Text('${b.legoCount} brick × ${it.qty} adet',
+                    style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
+                ])),
+                Text('₺${it.lineTotal.toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              ]),
+            );
+          }),
           const Divider(height: 20),
-          _Row('Toplam', '₺${bouquet.price.toStringAsFixed(0)}', bold: true),
+          _Row('Teslim', name),
+          _Row('Brick', '$totalLego adet'),
+          _Row('Toplam', '₺${total.toStringAsFixed(0)}', bold: true),
         ]),
       ),
       const SizedBox(height: 16),
