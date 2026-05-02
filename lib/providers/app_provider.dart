@@ -66,6 +66,13 @@ class AppProvider extends ChangeNotifier {
     _placedFlowers = [];
     _isFreeDesign = false;
     _inputName = '';
+    _saved.clear();
+    // System Favoriler hariç tüm koleksiyonları sil + Favoriler'i boşalt
+    _collections.removeWhere((c) => !c.isSystem);
+    final favIdx = _collections.indexWhere((c) => c.id == 'sys_favorites');
+    if (favIdx >= 0) {
+      _collections[favIdx] = _collections[favIdx].copyWith(savedBouquetIds: []);
+    }
     notifyListeners();
   }
 
@@ -200,20 +207,177 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Favorites ─────────────────────────────────────────────────────────────
-  final List<Bouquet> _favorites = [];
-  List<Bouquet> get favorites => List.unmodifiable(_favorites);
+  // ── Saved + Collections ─────────────────────────────────────────────────
+  /// Kullanıcının kütüphaneye kaydettiği buketler.
+  final List<SavedBouquet> _saved = [];
+  List<SavedBouquet> get saved => List.unmodifiable(_saved);
 
-  bool isFavorite(String id) => _favorites.any((b) => b.id == id);
+  /// Sistem + kullanıcı koleksiyonları. İlk eleman daima Favoriler (sistem).
+  final List<BouquetCollection> _collections = [
+    BouquetCollection(
+      id: 'sys_favorites',
+      name: 'Favoriler',
+      emoji: '❤️',
+      isSystem: true,
+      createdAt: DateTime(2024, 1, 1),
+    ),
+  ];
+  List<BouquetCollection> get collections => List.unmodifiable(_collections);
 
-  void toggleFavorite(Bouquet bouquet) {
-    final idx = _favorites.indexWhere((b) => b.id == bouquet.id);
-    if (idx >= 0) {
-      _favorites.removeAt(idx);
-    } else {
-      _favorites.add(bouquet);
+  /// Sistem favorisi koleksiyonu — kısa yol.
+  BouquetCollection get _favoritesCollection =>
+      _collections.firstWhere((c) => c.id == 'sys_favorites');
+
+  /// Bir koleksiyonun saved buket içeriklerini sırayla döndürür.
+  List<SavedBouquet> bouquetsInCollection(String collectionId) {
+    final c = _collections.firstWhere(
+      (c) => c.id == collectionId,
+      orElse: () => _collections.first,
+    );
+    return c.savedBouquetIds
+        .map((id) {
+          for (final s in _saved) {
+            if (s.id == id) return s;
+          }
+          return null;
+        })
+        .whereType<SavedBouquet>()
+        .toList();
+  }
+
+  /// Bir bouquet ID'si saved listesinde var mı?
+  SavedBouquet? findSavedByBouquetId(String bouquetId) {
+    for (final s in _saved) {
+      if (s.bouquet.id == bouquetId) return s;
+    }
+    return null;
+  }
+
+  /// ── Save / Unsave ──────────────────────────────────────
+  /// Buketi kütüphaneye kaydeder. Zaten varsa mevcut id döner.
+  String saveBouquet(Bouquet b) {
+    final existing = findSavedByBouquetId(b.id);
+    if (existing != null) return existing.id;
+    final saved = SavedBouquet(
+      id: 's_${DateTime.now().millisecondsSinceEpoch}',
+      bouquet: b,
+      savedAt: DateTime.now(),
+    );
+    _saved.add(saved);
+    notifyListeners();
+    return saved.id;
+  }
+
+  /// Buketi tamamen sil (tüm koleksiyonlardan da çıkar).
+  void unsaveBouquet(String savedId) {
+    _saved.removeWhere((s) => s.id == savedId);
+    for (int i = 0; i < _collections.length; i++) {
+      final c = _collections[i];
+      if (c.savedBouquetIds.contains(savedId)) {
+        _collections[i] = c.copyWith(
+          savedBouquetIds:
+              c.savedBouquetIds.where((id) => id != savedId).toList(),
+        );
+      }
     }
     notifyListeners();
+  }
+
+  /// ── Collection CRUD ────────────────────────────────────
+  String createCollection({
+    required String name,
+    String emoji = '📁',
+    String? description,
+  }) {
+    final c = BouquetCollection(
+      id: 'c_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      emoji: emoji,
+      description: description,
+      createdAt: DateTime.now(),
+    );
+    _collections.add(c);
+    notifyListeners();
+    return c.id;
+  }
+
+  void renameCollection(String collectionId,
+      {String? name, String? emoji, String? description}) {
+    final i = _collections.indexWhere((c) => c.id == collectionId);
+    if (i < 0 || _collections[i].isSystem) return;
+    _collections[i] = _collections[i].copyWith(
+      name: name,
+      emoji: emoji,
+      description: description,
+    );
+    notifyListeners();
+  }
+
+  void deleteCollection(String collectionId) {
+    final i = _collections.indexWhere((c) => c.id == collectionId);
+    if (i < 0 || _collections[i].isSystem) return;
+    _collections.removeAt(i);
+    notifyListeners();
+  }
+
+  /// ── Membership ────────────────────────────────────────
+  bool isInCollection(String savedId, String collectionId) {
+    final c = _collections.firstWhere(
+      (c) => c.id == collectionId,
+      orElse: () => _favoritesCollection,
+    );
+    return c.savedBouquetIds.contains(savedId);
+  }
+
+  void addToCollection(String savedId, String collectionId) {
+    final i = _collections.indexWhere((c) => c.id == collectionId);
+    if (i < 0) return;
+    final c = _collections[i];
+    if (c.savedBouquetIds.contains(savedId)) return;
+    _collections[i] = c.copyWith(
+      savedBouquetIds: [...c.savedBouquetIds, savedId],
+    );
+    notifyListeners();
+  }
+
+  void removeFromCollection(String savedId, String collectionId) {
+    final i = _collections.indexWhere((c) => c.id == collectionId);
+    if (i < 0) return;
+    final c = _collections[i];
+    if (!c.savedBouquetIds.contains(savedId)) return;
+    _collections[i] = c.copyWith(
+      savedBouquetIds:
+          c.savedBouquetIds.where((id) => id != savedId).toList(),
+    );
+    notifyListeners();
+  }
+
+  /// ── Favorites compatibility ────────────────────────────
+  /// Bouquet bazlı API — eski koddan değişmemesi için korunuyor.
+  List<Bouquet> get favorites =>
+      bouquetsInCollection('sys_favorites').map((s) => s.bouquet).toList();
+
+  bool isFavorite(String bouquetId) {
+    final saved = findSavedByBouquetId(bouquetId);
+    if (saved == null) return false;
+    return _favoritesCollection.savedBouquetIds.contains(saved.id);
+  }
+
+  /// Bouquet'i favorilere ekle/çıkar — gerekirse otomatik save eder.
+  void toggleFavorite(Bouquet bouquet) {
+    final saved = findSavedByBouquetId(bouquet.id);
+    if (saved == null) {
+      // İlk kez: önce kaydet, sonra Favoriler'e ekle
+      final newId = saveBouquet(bouquet);
+      addToCollection(newId, 'sys_favorites');
+    } else {
+      // Zaten kayıtlı — Favoriler durumunu toggle et
+      if (_favoritesCollection.savedBouquetIds.contains(saved.id)) {
+        removeFromCollection(saved.id, 'sys_favorites');
+      } else {
+        addToCollection(saved.id, 'sys_favorites');
+      }
+    }
   }
 
   // ── Cart ─────────────────────────────────────────────────────────────────

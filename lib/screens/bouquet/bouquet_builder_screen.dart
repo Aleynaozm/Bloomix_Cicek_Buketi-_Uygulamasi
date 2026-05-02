@@ -1,21 +1,82 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../theme/app_theme.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/widgets.dart';
+import '../../widgets/save_to_collection_sheet.dart';
 import 'customize_screen.dart';
 
 /// Buket Önizleme — bir önceki ekrandaki tasarımı kullanır.
-///
-/// İki kaynak:
-/// • Free design akışı: provider.placedFlowers user'ın yerleştirdiği konumlarda
-/// • Alfabe akışı: provider.placedFlowers otomatik dome (provider üretti)
-///
-/// Geri tuşu (AppBar): pop → önceki ekrana state'i koruyarak döner.
-class BouquetBuilderScreen extends StatelessWidget {
+/// AppBar: ❤ Favori · 💾 Kaydet (koleksiyon) · 📤 Paylaş (screenshot)
+class BouquetBuilderScreen extends StatefulWidget {
   const BouquetBuilderScreen({super.key});
+
+  @override
+  State<BouquetBuilderScreen> createState() => _BouquetBuilderScreenState();
+}
+
+class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
+  /// RepaintBoundary key — paylaş butonu bu sahneyi PNG'e çevirir.
+  final GlobalKey _previewKey = GlobalKey();
+
+  Future<void> _share(Bouquet b) async {
+    try {
+      final boundary = _previewKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        await Share.share(
+            '🌸 Bloomix tasarımım: ${b.name}\n${b.legoCount} brick · ${b.size.label}');
+        return;
+      }
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        await Share.share('🌸 Bloomix tasarımım: ${b.name}');
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/bloomix_${b.id}_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text:
+            '🌸 Bloomix tasarımım: ${b.name}\n${b.legoCount} brick · ${b.size.label} · ₺${b.price.toStringAsFixed(0)}\n\nBloomix ile sen de tasarla.',
+      );
+    } catch (e) {
+      // Hatada düşük seviye text share fallback
+      await Share.share('🌸 Bloomix tasarımım: ${b.name}');
+    }
+  }
+
+  void _toast(String msg, {Color? bg}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: bg ?? AppColors.rose,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14)),
+        content: Row(children: [
+          const Icon(Icons.check_circle_outline_rounded,
+              color: Colors.white),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(msg,
+                  style: GoogleFonts.poppins(
+                      color: Colors.white, fontWeight: FontWeight.w600))),
+        ]),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +93,6 @@ class BouquetBuilderScreen extends StatelessWidget {
           backgroundColor: AppColors.cream,
           elevation: 0,
           scrolledUnderElevation: 0,
-          // Geri tuşu otomatik. pop yapar — önceki ekran (FreeDesign veya
-          // NameInput) state'i widget tree'de korunmuş olarak döner.
           title: Text(
             isFreeDesign
                 ? 'Tasarımım'
@@ -47,6 +106,7 @@ class BouquetBuilderScreen extends StatelessWidget {
           centerTitle: true,
           actions: [
             IconButton(
+              tooltip: isFavorite ? 'Favorilerden çıkar' : 'Favorile',
               icon: Icon(
                 isFavorite
                     ? Icons.favorite_rounded
@@ -55,14 +115,33 @@ class BouquetBuilderScreen extends StatelessWidget {
               ),
               onPressed: bouquet == null
                   ? null
-                  : () => prov.toggleFavorite(bouquet),
+                  : () {
+                      prov.toggleFavorite(bouquet);
+                      _toast(isFavorite
+                          ? 'Favorilerden çıkarıldı'
+                          : 'Favorilere eklendi 💖');
+                    },
+            ),
+            IconButton(
+              tooltip: 'Kaydet',
+              icon: const Icon(Icons.bookmark_outline_rounded,
+                  color: AppColors.rose),
+              onPressed: bouquet == null
+                  ? null
+                  : () => SaveToCollectionSheet.show(context, bouquet),
+            ),
+            IconButton(
+              tooltip: 'Paylaş',
+              icon: const Icon(Icons.ios_share_rounded,
+                  color: AppColors.rose),
+              onPressed: bouquet == null ? null : () => _share(bouquet),
             ),
           ],
         ),
         body: SafeArea(
           top: false,
           child: Column(children: [
-            // ── Buket önizleme — gerçek buket görseli ──────────────
+            // ── Buket önizleme — RepaintBoundary ile paylaşılabilir ──
             Expanded(
               flex: 5,
               child: Padding(
@@ -70,21 +149,28 @@ class BouquetBuilderScreen extends StatelessWidget {
                 child: placed.isEmpty
                     ? const Center(
                         child: Text('Çiçek yok',
-                            style: TextStyle(color: AppColors.textLight)),
+                            style:
+                                TextStyle(color: AppColors.textLight)),
                       )
                     : Center(
-                        child: BouquetPreview(
-                          flowers: prov.flowers,
-                          placed: placed,
-                          ribbon: prov.ribbon,
-                          height: 380,
+                        child: RepaintBoundary(
+                          key: _previewKey,
+                          child: Container(
+                            color: AppColors.cream,
+                            padding: const EdgeInsets.all(16),
+                            child: BouquetPreview(
+                              flowers: prov.flowers,
+                              placed: placed,
+                              ribbon: prov.ribbon,
+                              height: 380,
+                            ),
+                          ),
                         ),
                       ),
               ),
             ),
 
             // ── Alfabe akışında: harf adı + chip listesi ───────────
-            // Free design'da bu blok TAMAMEN gizli (kullanıcı dostu)
             if (!isFreeDesign && prov.flowers.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
@@ -138,7 +224,8 @@ class BouquetBuilderScreen extends StatelessWidget {
                                     Text(f.nameTr,
                                         style: GoogleFonts.poppins(
                                             fontSize: 10,
-                                            color: AppColors.textLight)),
+                                            color:
+                                                AppColors.textLight)),
                                   ]),
                             ),
                           ))
@@ -193,8 +280,10 @@ class BouquetBuilderScreen extends StatelessWidget {
                               color: AppColors.rose.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.extension_rounded,
-                                size: 16, color: AppColors.rose),
+                            child: const Icon(
+                                Icons.extension_rounded,
+                                size: 16,
+                                color: AppColors.rose),
                           ),
                           const SizedBox(width: 10),
                           Column(
@@ -237,7 +326,8 @@ class BouquetBuilderScreen extends StatelessWidget {
                       icon: const Icon(Icons.tune_rounded, size: 18),
                       label: Text('Özelleştir',
                           style: GoogleFonts.poppins(
-                              fontSize: 14, fontWeight: FontWeight.w600)),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
                             color: AppColors.rose.withOpacity(0.5),
@@ -259,29 +349,7 @@ class BouquetBuilderScreen extends StatelessWidget {
                         ? null
                         : () {
                             prov.addToCart(bouquet);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: AppColors.rose,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(14)),
-                                content: Row(children: [
-                                  const Icon(
-                                      Icons.check_circle_outline_rounded,
-                                      color: Colors.white),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                      child: Text(
-                                          '${bouquet.name} sepete eklendi',
-                                          style: GoogleFonts.poppins(
-                                              color: Colors.white,
-                                              fontWeight:
-                                                  FontWeight.w600))),
-                                ]),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
+                            _toast('${bouquet.name} sepete eklendi');
                           },
                   ),
                 ),

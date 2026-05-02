@@ -9,7 +9,7 @@ import '../screens/bouquet/free_design_screen.dart';
 import '../screens/bouquet/name_input_screen.dart';
 import '../screens/main/special_days_screen.dart';
 import '../screens/main/popular_designs_screen.dart';
-import '../screens/main/favorites_screen.dart';
+import '../screens/main/collections_screen.dart';
 
 /// Sol kenardan açılan ana menü.
 /// Üstte profil header, altında navigasyon link'leri ve çıkış.
@@ -136,7 +136,7 @@ class AppDrawer extends StatelessWidget {
                       Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const FavoritesScreen()));
+                              builder: (_) => const CollectionsScreen()));
                     },
                   ),
 

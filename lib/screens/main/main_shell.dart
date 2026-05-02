@@ -5,7 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import 'home_screen.dart';
 import 'explore_screen.dart';
-import 'favorites_screen.dart';
+import 'collections_screen.dart';
 import '../profile/profile_screen.dart';
 import '../shop/cart_screen.dart';
 
@@ -33,7 +33,7 @@ class _MainShellState extends State<MainShell> {
         onGoExplore: () => _switchTab(1),
       ),
       const ExploreScreen(),
-      const FavoritesScreen(),
+      const CollectionsScreen(),
       const CartScreen(),
       const ProfileScreen(),
     ];
@@ -60,7 +60,8 @@ class _BottomNav extends StatelessWidget {
       final items = <_NavSpec>[
         const _NavSpec(Icons.home_outlined, Icons.home_rounded, 'Anasayfa'),
         const _NavSpec(Icons.search_outlined, Icons.search_rounded, 'Keşfet'),
-        const _NavSpec(Icons.favorite_outline, Icons.favorite_rounded, 'Favoriler'),
+        const _NavSpec(Icons.collections_bookmark_outlined,
+            Icons.collections_bookmark_rounded, 'Koleksiyon'),
         _NavSpec(Icons.shopping_bag_outlined, Icons.shopping_bag_rounded,
             'Sepet', badge: cartCount > 0 ? cartCount : null),
         const _NavSpec(Icons.person_outline, Icons.person_rounded, 'Profil'),

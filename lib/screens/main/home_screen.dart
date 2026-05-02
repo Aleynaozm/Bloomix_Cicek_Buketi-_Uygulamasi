@@ -10,7 +10,7 @@ import '../bouquet/name_input_screen.dart';
 import '../bouquet/free_design_screen.dart';
 import 'special_days_screen.dart';
 import 'popular_designs_screen.dart';
-import 'favorites_screen.dart';
+import 'collections_screen.dart';
 
 /// Anasayfa = Hub.
 /// Üstte Lottie hero animasyonu + 5 ana kategori kartı:
@@ -184,7 +184,7 @@ class HomeScreen extends StatelessWidget {
                         onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const FavoritesScreen())),
+                                builder: (_) => const CollectionsScreen())),
                       ),
                     ),
                   ]),

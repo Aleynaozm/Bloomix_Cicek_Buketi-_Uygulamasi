@@ -271,6 +271,68 @@ class Order {
   int get totalLego => items.fold(0, (s, it) => s + it.lineLegoCount);
 }
 
+// ── Saved Bouquet ─────────────────────────────────────────
+/// Kullanıcının kütüphanesine kaydettiği buket.
+/// İmmutable — koleksiyon üyeliği BouquetCollection.savedBouquetIds'ten okunur.
+class SavedBouquet {
+  final String id;
+  final Bouquet bouquet;
+  final DateTime savedAt;
+
+  const SavedBouquet({
+    required this.id,
+    required this.bouquet,
+    required this.savedAt,
+  });
+
+  SavedBouquet copyWith({Bouquet? bouquet}) => SavedBouquet(
+        id: id,
+        bouquet: bouquet ?? this.bouquet,
+        savedAt: savedAt,
+      );
+}
+
+// ── Bouquet Collection ────────────────────────────────────
+/// Kullanıcının oluşturduğu (veya sistem) buket koleksiyonu.
+/// `isSystem=true` → silinemez/yeniden adlandırılamaz (ör. Favoriler).
+class BouquetCollection {
+  final String id;
+  final String name;
+  final String emoji;
+  final String? description;
+  final DateTime createdAt;
+  final bool isSystem;
+  final List<String> savedBouquetIds;
+
+  const BouquetCollection({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    this.description,
+    required this.createdAt,
+    this.isSystem = false,
+    this.savedBouquetIds = const [],
+  });
+
+  BouquetCollection copyWith({
+    String? name,
+    String? emoji,
+    String? description,
+    List<String>? savedBouquetIds,
+  }) =>
+      BouquetCollection(
+        id: id,
+        name: name ?? this.name,
+        emoji: emoji ?? this.emoji,
+        description: description ?? this.description,
+        createdAt: createdAt,
+        isSystem: isSystem,
+        savedBouquetIds: savedBouquetIds ?? this.savedBouquetIds,
+      );
+
+  int get count => savedBouquetIds.length;
+}
+
 // ── User ──────────────────────────────────────────────────
 class AppUser {
   final String id;
