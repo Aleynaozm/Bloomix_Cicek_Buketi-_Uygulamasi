@@ -5,6 +5,11 @@ import '../theme/app_theme.dart';
 import '../providers/app_provider.dart';
 import '../screens/shop/orders_screen.dart';
 import '../screens/info/info_screens.dart';
+import '../screens/bouquet/free_design_screen.dart';
+import '../screens/bouquet/name_input_screen.dart';
+import '../screens/main/special_days_screen.dart';
+import '../screens/main/popular_designs_screen.dart';
+import '../screens/main/favorites_screen.dart';
 
 /// Sol kenardan açılan ana menü.
 /// Üstte profil header, altında navigasyon link'leri ve çıkış.
@@ -72,6 +77,71 @@ class AppDrawer extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
+                  // ── Ana kategoriler ──────────────────────────────
+                  _SectionLabel('Tasarla'),
+                  _Tile(
+                    icon: Icons.palette_outlined,
+                    label: 'Buket Tasarla',
+                    iconColor: AppColors.rose,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const FreeDesignScreen()));
+                    },
+                  ),
+                  _Tile(
+                    icon: Icons.text_fields_rounded,
+                    label: 'Çiçek Alfabesi',
+                    iconColor: AppColors.green,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const NameInputScreen()));
+                    },
+                  ),
+                  _Tile(
+                    icon: Icons.card_giftcard_rounded,
+                    label: 'Özel Gün Buketleri',
+                    iconColor: AppColors.rose,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SpecialDaysScreen()));
+                    },
+                  ),
+                  _Tile(
+                    icon: Icons.star_rounded,
+                    label: 'Popüler Tasarımlar',
+                    iconColor: const Color(0xFFCB8C20),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const PopularDesignsScreen()));
+                    },
+                  ),
+                  _Tile(
+                    icon: Icons.inventory_2_rounded,
+                    label: 'Koleksiyonum',
+                    iconColor: const Color(0xFF3070D0),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const FavoritesScreen()));
+                    },
+                  ),
+
+                  const Divider(height: 24, indent: 16, endIndent: 16),
+                  _SectionLabel('Hesap'),
                   _Tile(
                     icon: Icons.shopping_bag_outlined,
                     label: 'Siparişlerim',
@@ -116,6 +186,7 @@ class AppDrawer extends StatelessWidget {
                       },
                     ),
                   const Divider(height: 24, indent: 16, endIndent: 16),
+                  _SectionLabel('Diğer'),
                   _Tile(
                     icon: Icons.help_outline_rounded,
                     label: 'Yardım & Destek',
@@ -180,21 +251,45 @@ class AppDrawer extends StatelessWidget {
   }
 }
 
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+      child: Text(
+        text.toUpperCase(),
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.3,
+          color: AppColors.textLight,
+        ),
+      ),
+    );
+  }
+}
+
 class _Tile extends StatelessWidget {
   final IconData icon;
   final String label;
   final int? badge;
   final VoidCallback onTap;
-  const _Tile(
-      {required this.icon,
-      required this.label,
-      required this.onTap,
-      this.badge});
+  final Color? iconColor;
+  const _Tile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.badge,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: AppColors.textMid, size: 22),
+      dense: true,
+      leading: Icon(icon, color: iconColor ?? AppColors.textMid, size: 22),
       title: Text(
         label,
         style: GoogleFonts.poppins(

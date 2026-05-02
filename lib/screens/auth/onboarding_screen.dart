@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../../theme/app_theme.dart';
@@ -86,14 +87,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // ── Sayfalar (yatay swipe ile gezinme) ───────────────────
+            // ── Sayfalar (mouse + touch + trackpad swipe) ────────────
             Expanded(
-              child: PageView.builder(
-                controller: _ctrl,
-                physics: const BouncingScrollPhysics(),
-                itemCount: _pages.length,
-                onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (_, i) => _OnboardPageView(data: _pages[i]),
+              child: ScrollConfiguration(
+                // Tüm pointer cihazlarına drag izin ver (web/desktop dahil).
+                behavior: const _AllDragScrollBehavior(),
+                child: PageView.builder(
+                  controller: _ctrl,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: _pages.length,
+                  dragStartBehavior: DragStartBehavior.down,
+                  onPageChanged: (i) => setState(() => _page = i),
+                  itemBuilder: (_, i) => _OnboardPageView(data: _pages[i]),
+                ),
               ),
             ),
 
@@ -133,6 +139,20 @@ class _OnboardData {
     required this.title,
     required this.body,
   });
+}
+
+/// Tüm pointer cihazlarından drag kabul eden scroll behavior.
+/// PageView'in mouse/touch/trackpad/stylus ile swipe edilmesini sağlar.
+class _AllDragScrollBehavior extends MaterialScrollBehavior {
+  const _AllDragScrollBehavior();
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.invertedStylus,
+      };
 }
 
 class _OnboardPageView extends StatelessWidget {

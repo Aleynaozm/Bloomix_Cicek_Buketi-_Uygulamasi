@@ -30,6 +30,7 @@ class _MainShellState extends State<MainShell> {
       HomeScreen(
         onShowOnboarding: widget.onShowOnboarding,
         onGoCart: () => _switchTab(3),
+        onGoExplore: () => _switchTab(1),
       ),
       const ExploreScreen(),
       const FavoritesScreen(),

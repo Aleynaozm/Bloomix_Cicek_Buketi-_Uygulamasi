@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../models/models.dart';
@@ -62,6 +63,8 @@ class AppProvider extends ChangeNotifier {
     // Bouquet/sipariş gibi geçici state'leri temizle:
     _currentBouquet = null;
     _flowers = [];
+    _placedFlowers = [];
+    _isFreeDesign = false;
     _inputName = '';
     notifyListeners();
   }
@@ -75,37 +78,85 @@ class AppProvider extends ChangeNotifier {
   // ── Bouquet Builder ───────────────────────────────────────────────────────
   String _inputName = '';
   List<Flower> _flowers = [];
-  WrapperStyle _wrapper = WrapperStyle.pastelPink;
+  /// Kullanıcı tasarladıysa bunlar dolu. Alfabe akışında otomatik dome pozisyonu üretilir.
+  /// BouquetPreview hep buradan render eder.
+  List<PlacedFlowerData> _placedFlowers = [];
+  RibbonStyle _ribbon = RibbonStyle.red;
   BouquetSize _size = BouquetSize.medium;
   Bouquet? _currentBouquet;
+  /// True = serbest tasarla akışından geldi, False = alfabe akışı.
+  bool _isFreeDesign = false;
 
   String get inputName => _inputName;
   List<Flower> get flowers => _flowers;
-  WrapperStyle get wrapper => _wrapper;
+  List<PlacedFlowerData> get placedFlowers =>
+      List.unmodifiable(_placedFlowers);
+  RibbonStyle get ribbon => _ribbon;
   BouquetSize get size => _size;
   Bouquet? get currentBouquet => _currentBouquet;
   bool get hasBouquet => _flowers.isNotEmpty;
+  bool get isFreeDesign => _isFreeDesign;
 
+  /// Alfabe akışı: isimden çiçekler + dome pozisyonları üretir.
   void generateBouquet(String name) {
     _inputName = turkishUpperCase(name)
         .split('')
         .where((c) => flowerAlphabet.containsKey(c))
         .join('');
     _flowers = getFlowersForName(name);
+    _isFreeDesign = false;
+    _placedFlowers = _generateDomePositions(_flowers);
     _currentBouquet = _flowers.isEmpty
         ? null
         : Bouquet(
             id: 'b_${DateTime.now().millisecondsSinceEpoch}',
             name: _inputName,
             flowers: _flowers,
-            wrapper: _wrapper,
+            ribbon: _ribbon,
             size: _size,
           );
     notifyListeners();
   }
 
-  void setWrapper(WrapperStyle w) {
-    _wrapper = w;
+  /// Serbest tasarla akışı: kullanıcının placed flower verilerini direkt kullan.
+  void setPlacedFlowers(List<PlacedFlowerData> placed,
+      {String name = 'Tasarımım'}) {
+    _placedFlowers = List.from(placed);
+    _flowers = placed.map((p) => p.flower).toList();
+    _inputName = name;
+    _isFreeDesign = true;
+    _rebuildBouquet();
+  }
+
+  /// Özel Gün şablon buketini editöre yükler (Kişiselleştir akışı).
+  /// Çiçek listesinden otomatik dome pozisyonu üretilir; kullanıcı
+  /// BouquetBuilder + Customize'da kurdele/boyut değiştirebilir.
+  void loadTemplateBouquet({
+    required String name,
+    required List<Flower> flowers,
+    required RibbonStyle ribbon,
+    required BouquetSize size,
+  }) {
+    _flowers = List.from(flowers);
+    _ribbon = ribbon;
+    _size = size;
+    _inputName = name;
+    _isFreeDesign = false;
+    _placedFlowers = _generateDomePositions(_flowers);
+    _currentBouquet = _flowers.isEmpty
+        ? null
+        : Bouquet(
+            id: 'b_${DateTime.now().millisecondsSinceEpoch}',
+            name: name,
+            flowers: _flowers,
+            ribbon: _ribbon,
+            size: _size,
+          );
+    notifyListeners();
+  }
+
+  void setRibbon(RibbonStyle r) {
+    _ribbon = r;
     _rebuildBouquet();
   }
 
@@ -114,13 +165,35 @@ class AppProvider extends ChangeNotifier {
     _rebuildBouquet();
   }
 
+  /// İsimsel buket için pozisyon üretici — sıkı dome.
+  List<PlacedFlowerData> _generateDomePositions(List<Flower> flowers) {
+    final n = flowers.length;
+    if (n == 0) return [];
+    const cx = 0.5;
+    const baseY = 0.40;
+    final radius = n <= 3 ? 0.10 : (n <= 6 ? 0.14 : 0.18);
+    return List.generate(n, (i) {
+      final t = (n == 1) ? 0.0 : (i - (n - 1) / 2) / ((n - 1) / 2);
+      final angle = t * pi / 2.5;
+      final x = cx + sin(angle) * radius;
+      final y = baseY + (1 - cos(angle)) * radius * 0.85;
+      return PlacedFlowerData(
+        id: 'dome_$i',
+        flower: flowers[i],
+        position: Offset(x, y),
+        scale: 1.0 - t.abs() * 0.12,
+        rotation: t * 0.12,
+      );
+    });
+  }
+
   void _rebuildBouquet() {
     if (_flowers.isNotEmpty) {
       _currentBouquet = Bouquet(
         id: _currentBouquet?.id ?? 'b_${DateTime.now().millisecondsSinceEpoch}',
         name: _inputName,
         flowers: _flowers,
-        wrapper: _wrapper,
+        ribbon: _ribbon,
         size: _size,
       );
     }

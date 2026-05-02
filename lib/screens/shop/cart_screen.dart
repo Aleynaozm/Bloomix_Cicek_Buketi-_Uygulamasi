@@ -150,7 +150,7 @@ class _CartTile extends StatelessWidget {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: b.wrapper.color.withOpacity(0.4),
+            color: b.ribbon.color.withOpacity(0.25),
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Center(child: Text('💐', style: TextStyle(fontSize: 32))),
@@ -179,7 +179,7 @@ class _CartTile extends StatelessWidget {
               ),
             ]),
             const SizedBox(height: 2),
-            Text('${b.size.label} • ${b.wrapper.label}',
+            Text('${b.size.label} • ${b.ribbon.label} kurdele',
                 style: GoogleFonts.poppins(
                     fontSize: 12, color: AppColors.textLight)),
             Text('${b.legoCount} brick',

@@ -408,7 +408,7 @@ class _ReviewStep extends StatelessWidget {
                   Text(b.name, style: TextStyle(fontSize: 14,
                     fontWeight: FontWeight.w700, color: AppColors.rose, letterSpacing: 1.5)),
                   const SizedBox(height: 2),
-                  Text('${b.size.label} • ${b.wrapper.label}',
+                  Text('${b.size.label} • ${b.ribbon.label} kurdele',
                     style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
                   Text('${b.legoCount} brick × ${it.qty} adet',
                     style: const TextStyle(fontSize: 11, color: AppColors.textLight)),

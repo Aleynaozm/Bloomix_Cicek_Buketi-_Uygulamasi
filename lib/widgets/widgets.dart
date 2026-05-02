@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
@@ -105,13 +106,25 @@ class _PlaceholderFlower extends StatelessWidget {
   }
 }
 
-// ── Bouquet Preview (horizontal flower strip + wrapper) ────
+// ── Bouquet Preview ─────────────────────────────────────────
+/// Gerçek buket görseli: pozisyonlu çiçekler → her birinden curve sap →
+/// merkezde bind point + kurdele → altta paralel saplar → kanvas dibi.
+///
+/// `placed` doluysa o pozisyonları kullanır (FreeDesign veya alfabe dome).
+/// `flowers` parametresi geriye uyumluluk için tutuldu, kullanılmıyor.
 class BouquetPreview extends StatefulWidget {
   final List<Flower> flowers;
-  final WrapperStyle wrapper;
+  final List<PlacedFlowerData>? placed;
+  final RibbonStyle ribbon;
   final double height;
 
-  const BouquetPreview({super.key, required this.flowers, required this.wrapper, this.height = 280});
+  const BouquetPreview({
+    super.key,
+    required this.flowers,
+    this.placed,
+    required this.ribbon,
+    this.height = 320,
+  });
 
   @override
   State<BouquetPreview> createState() => _BouquetPreviewState();
@@ -157,174 +170,408 @@ class _BouquetPreviewState extends State<BouquetPreview> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    final n = widget.flowers.length;
-    if (n == 0) return SizedBox(height: widget.height);
-
-    // Sargı boyutu — geniş render, kanvası dolduracak şekilde
-    final wrapperW = widget.height * 1.5;
-    final wrapperH = widget.height * 1.5;
-    final wrapperShiftDown = widget.height * 0.06;
-
-    // Çiçek boyutu — büyük, sıkı kümelenmiş buket
-    final flowerSize = switch (n) {
-      1 => 210.0,
-      2 => 175.0,
-      3 => 155.0,
-      4 => 140.0,
-      5 => 125.0,
-      6 => 115.0,
-      7 => 105.0,
-      _ => 95.0,
-    };
-    // Overlap oranı — n arttıkça sıkı buket için artıyor
-    final overlapRatio = (n <= 2) ? 0.3 : (n <= 4) ? 0.5 : (n <= 6) ? 0.62 : 0.7;
-    final stepX = flowerSize * (1 - overlapRatio); // bitişik çiçekler arası mesafe
-    final clusterW = (n - 1) * stepX + flowerSize;
-    final clusterH = flowerSize * 1.35; // dome efekti için ekstra yükseklik
-    // Cluster tabanı — sargının açıklığında
-    final mouthFromBottom = widget.height * 0.5;
-
-    // Çiçeklerin Z-order'ı: dış çiçekler arkada, merkez önde
-    final order = List.generate(n, (i) => i);
-    order.sort((a, b) {
-      final da = (a - (n - 1) / 2.0).abs();
-      final db = (b - (n - 1) / 2.0).abs();
-      return db.compareTo(da); // outer first (back)
-    });
-
-    return ClipRect(
-      child: SizedBox(
-        width: double.infinity,
-        height: widget.height,
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          clipBehavior: Clip.hardEdge,
-          children: [
-            // 1. Sargı kağıdı
-            Transform.translate(
-              offset: Offset(0, wrapperShiftDown),
-              child: ColorFiltered(
-                colorFilter: ColorFilter.mode(widget.wrapper.color, BlendMode.modulate),
-                child: Image.asset(
-                  'assets/images/wrapper.png',
-                  width: wrapperW,
-                  height: wrapperH,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => CustomPaint(
-                    size: const Size(240, 100),
-                    painter: WrapperPainter(color: widget.wrapper.color),
+    // Pozisyon kaynağı: explicit `placed` > flowers'tan otomatik dome.
+    final placed = widget.placed != null && widget.placed!.isNotEmpty
+        ? widget.placed!
+        : _autoDome(widget.flowers);
+    if (placed.isEmpty) return SizedBox(height: widget.height);
+    final n = placed.length;
+    return LayoutBuilder(builder: (ctx, constraints) {
+      final w = constraints.maxWidth.isFinite
+          ? constraints.maxWidth
+          : MediaQuery.of(ctx).size.width;
+      final h = widget.height;
+      final cx = w / 2;
+      final bindY = h * 0.62;
+      final flowerBase = (h * 0.22).clamp(56.0, 120.0);
+      final stemBundleW = (n.clamp(5, 12) * 6.0) + 6;
+      return ClipRect(
+        child: SizedBox(
+          width: w,
+          height: h,
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              // 1. Curve saplar — her çiçekten bind point'e
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _ConvergingStemsPainter(
+                      placed: placed,
+                      canvasW: w,
+                      canvasH: h,
+                      bindPoint: Offset(cx, bindY),
+                      flowerBase: flowerBase,
+                    ),
                   ),
                 ),
               ),
-            ),
-
-            // 2. Çiçek cluster'ı — sıkı kümelenmiş, dome şeklinde
-            Padding(
-              padding: EdgeInsets.only(bottom: mouthFromBottom),
-              child: SizedBox(
-                width: clusterW,
-                height: clusterH,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: order.map((i) {
-                    // X pozisyonu: bitişik çiçekler stepX uzaklıkta
-                    final leftEdge = i * stepX;
-                    final centerOffset = i - (n - 1) / 2.0;
-                    final norm = n > 1 ? centerOffset / ((n - 1) / 2.0) : 0.0; // -1..1
-                    // Dome: merkez çiçekler yukarı (back row), kenarlar aşağı (front row)
-                    final yRaise = (1 - norm.abs()) * flowerSize * 0.22;
-                    // Hafif yelpaze eğimi
-                    final angle = norm * 0.12;
-
-                    return Positioned(
-                      left: leftEdge,
-                      bottom: yRaise,
-                      child: ScaleTransition(
-                        scale: i < _anims.length
-                            ? _anims[i]
-                            : const AlwaysStoppedAnimation(1.0),
-                        alignment: Alignment.bottomCenter,
-                        child: Transform.rotate(
-                          angle: angle,
-                          alignment: Alignment.bottomCenter,
-                          child: SizedBox(
-                            width: flowerSize,
-                            height: flowerSize,
-                            child: Image.asset(
-                              widget.flowers[i].assetPath,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    Container(
-                                      width: 36, height: 36,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: widget.flowers[i].color.withOpacity(0.2),
-                                      ),
-                                      child: Center(
-                                        child: Text(widget.flowers[i].letter,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: widget.flowers[i].color,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 2.5, height: 30,
-                                      color: AppColors.green.withOpacity(0.5),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+              // 2. Bind point altı paralel sap demeti
+              Positioned(
+                left: cx - stemBundleW / 2,
+                top: bindY - 8,
+                width: stemBundleW,
+                height: h - bindY + 8,
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _ParallelStemsPainter(
+                      count: n.clamp(5, 12),
+                    ),
+                  ),
+                ),
+              ),
+              // 3. Kurdele — bind point'in tam üstünde
+              Positioned(
+                left: cx - 70,
+                top: bindY - 22,
+                child: SizedBox(
+                  width: 140,
+                  height: 60,
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _RibbonPainter(color: widget.ribbon.color),
+                    ),
+                  ),
+                ),
+              ),
+              // 4. Çiçekler — pozisyonlarda, scale + rotate ile
+              ...placed.asMap().entries.map((entry) {
+                final i = entry.key;
+                final p = entry.value;
+                final size = flowerBase * p.scale;
+                final dx = p.position.dx * w - size / 2;
+                final dy = p.position.dy * h - size * 0.55;
+                return Positioned(
+                  left: dx,
+                  top: dy,
+                  width: size,
+                  height: size,
+                  child: ScaleTransition(
+                    scale: i < _anims.length
+                        ? _anims[i]
+                        : const AlwaysStoppedAnimation(1.0),
+                    alignment: Alignment.center,
+                    child: Transform.rotate(
+                      angle: p.rotation,
+                      child: Image.asset(
+                        p.flower.assetPath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(colors: [
+                              p.flower.color,
+                              p.flower.color.withOpacity(0.7),
+                            ]),
                           ),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-          ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
+
+  /// `placed` verilmediğinde fallback: çiçek listesinden dome üretir.
+  List<PlacedFlowerData> _autoDome(List<Flower> flowers) {
+    final n = flowers.length;
+    if (n == 0) return [];
+    const cx = 0.5;
+    const baseY = 0.40;
+    final radius = n <= 3 ? 0.10 : (n <= 6 ? 0.14 : 0.18);
+    return List.generate(n, (i) {
+      final t = (n == 1) ? 0.0 : (i - (n - 1) / 2) / ((n - 1) / 2);
+      final angle = t * (math.pi / 2.5);
+      return PlacedFlowerData(
+        id: 'dome_$i',
+        flower: flowers[i],
+        position: Offset(
+          cx + math.sin(angle) * radius,
+          baseY + (1 - math.cos(angle)) * radius * 0.85,
+        ),
+        scale: 1.0 - t.abs() * 0.12,
+        rotation: t * 0.12,
+      );
+    });
+  }
+
 }
 
-class WrapperPainter extends CustomPainter {
+/// Her çiçeğin alt-merkezinden bind point'e quadratic curve sap çizer.
+/// Yeşil ana renk + ince highlight çizgi.
+class _ConvergingStemsPainter extends CustomPainter {
+  final List<PlacedFlowerData> placed;
+  final double canvasW, canvasH;
+  final Offset bindPoint;
+  final double flowerBase;
+
+  const _ConvergingStemsPainter({
+    required this.placed,
+    required this.canvasW,
+    required this.canvasH,
+    required this.bindPoint,
+    required this.flowerBase,
+  });
+
+  static const _stemGreen = Color(0xFF2E7D3F);
+  static const _stemLight = Color(0xFF55A560);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in placed) {
+      final flowerSize = flowerBase * p.scale;
+      final flowerCenter = Offset(
+        p.position.dx * canvasW,
+        p.position.dy * canvasH,
+      );
+      // Sap, çiçeğin biraz altından çıkar (görsel olarak çiçeğe bağlı görünür)
+      final stemStart = Offset(
+        flowerCenter.dx,
+        flowerCenter.dy + flowerSize * 0.08,
+      );
+      // Bezier kontrol noktası: yarı yolda, hafif çiçeğe doğru çekik
+      final ctrl = Offset(
+        flowerCenter.dx + (bindPoint.dx - flowerCenter.dx) * 0.35,
+        flowerCenter.dy + (bindPoint.dy - flowerCenter.dy) * 0.65,
+      );
+      final path = Path()
+        ..moveTo(stemStart.dx, stemStart.dy)
+        ..quadraticBezierTo(ctrl.dx, ctrl.dy, bindPoint.dx, bindPoint.dy);
+
+      // Ana sap (kalın yeşil)
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = _stemGreen
+          ..strokeWidth = 4.0
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke,
+      );
+      // Highlight (ince açık yeşil iç çizgi)
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = _stemLight.withOpacity(0.55)
+          ..strokeWidth = 1.4
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConvergingStemsPainter old) =>
+      old.placed != placed || old.flowerBase != flowerBase;
+}
+
+/// Bind point'in altında paralel sap demeti.
+/// Saplar tutuş bölgesi gibi sıkı dikey paketlenmiş çubuklar.
+class _ParallelStemsPainter extends CustomPainter {
+  final int count;
+  const _ParallelStemsPainter({required this.count});
+
+  static const _stemGreen = Color(0xFF2E7D3F);
+  static const _stemDark = Color(0xFF1F5A2C);
+  static const _stemLight = Color(0xFF55A560);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stemW = (size.width / (count + 1)).clamp(4.0, 8.0);
+    final cx = size.width / 2;
+    for (int i = 0; i < count; i++) {
+      final t = (count == 1) ? 0.0 : (i - (count - 1) / 2.0) / ((count - 1) / 2.0);
+      final x = cx + t * (size.width * 0.4);
+      final r = Rect.fromLTWH(x - stemW / 2, 0, stemW, size.height);
+      canvas.drawRect(r, Paint()..color = _stemGreen);
+      // Sol kenar highlight
+      canvas.drawLine(
+        Offset(x - stemW / 2, 0),
+        Offset(x - stemW / 2, size.height),
+        Paint()
+          ..color = _stemLight.withOpacity(0.6)
+          ..strokeWidth = 1.0,
+      );
+      // Sağ kenar gölge
+      canvas.drawLine(
+        Offset(x + stemW / 2, 0),
+        Offset(x + stemW / 2, size.height),
+        Paint()
+          ..color = _stemDark.withOpacity(0.5)
+          ..strokeWidth = 1.0,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ParallelStemsPainter old) => old.count != count;
+}
+
+/// Lego stil yeşil sap demeti — paralel dikey çubuklar.
+/// Çubuklar üstte ince yelpaze, altta paralel; her birinin kenarında
+/// hafif koyu kontur (Lego brick gölgesi izlenimi).
+class _LegoStemBundlePainter extends CustomPainter {
+  final int stemCount;
+  const _LegoStemBundlePainter({required this.stemCount});
+
+  static const _stemGreen = Color(0xFF2E7D3F);
+  static const _stemDark = Color(0xFF1F5A2C);
+  static const _stemLight = Color(0xFF55A560);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fanSpread = size.width * 0.18; // üstteki yelpaze genişliği (alt = 0)
+    final stemW = (size.width / (stemCount + 1)).clamp(5.0, 10.0);
+    final cx = size.width / 2;
+
+    for (int i = 0; i < stemCount; i++) {
+      final t = (stemCount == 1) ? 0.0 : (i - (stemCount - 1) / 2.0) / ((stemCount - 1) / 2.0);
+      // Üst x: yelpaze açık
+      final topX = cx + t * fanSpread;
+      // Alt x: tüm saplar daha sıkı toplanır
+      final botX = cx + t * (fanSpread * 0.35);
+
+      final path = Path()
+        ..moveTo(topX - stemW / 2, 0)
+        ..lineTo(topX + stemW / 2, 0)
+        ..lineTo(botX + stemW / 2, size.height)
+        ..lineTo(botX - stemW / 2, size.height)
+        ..close();
+
+      // Ana yeşil
+      canvas.drawPath(
+          path, Paint()..color = _stemGreen);
+
+      // Sol kenar highlight
+      canvas.drawLine(
+        Offset(topX - stemW / 2, 0),
+        Offset(botX - stemW / 2, size.height),
+        Paint()
+          ..color = _stemLight.withOpacity(0.7)
+          ..strokeWidth = 1.2,
+      );
+      // Sağ kenar gölge
+      canvas.drawLine(
+        Offset(topX + stemW / 2, 0),
+        Offset(botX + stemW / 2, size.height),
+        Paint()
+          ..color = _stemDark.withOpacity(0.6)
+          ..strokeWidth = 1.2,
+      );
+
+      // Lego yaprak detayı — üstten ~%20'de küçük yeşil yaprak (sadece bazı saplarda)
+      if (i % 3 == 0) {
+        final leafY = size.height * 0.18;
+        final leafX = topX + (t > 0 ? stemW : -stemW);
+        final leafPath = Path()
+          ..moveTo(leafX, leafY)
+          ..quadraticBezierTo(leafX + (t > 0 ? 16 : -16), leafY - 6,
+              leafX + (t > 0 ? 22 : -22), leafY + 4)
+          ..quadraticBezierTo(leafX + (t > 0 ? 14 : -14), leafY + 8, leafX, leafY)
+          ..close();
+        canvas.drawPath(leafPath, Paint()..color = _stemLight);
+        canvas.drawPath(
+            leafPath,
+            Paint()
+              ..color = _stemDark.withOpacity(0.4)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 0.8);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LegoStemBundlePainter old) =>
+      old.stemCount != stemCount;
+}
+
+/// Buketin sap demetine bağlanan kurdele.
+/// Orta düğüm + iki yan loop + iki kuyruk aşağı sarkıyor.
+class _RibbonPainter extends CustomPainter {
   final Color color;
-  const WrapperPainter({required this.color});
+  const _RibbonPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size s) {
-    final fill = Paint()..color = color;
-    final stroke = Paint()..color = color.withOpacity(0.5)..style = PaintingStyle.stroke..strokeWidth = 0.8;
-    final path = Path()
-      ..moveTo(0, 22)..quadraticBezierTo(s.width / 2, 0, s.width, 22)
-      ..lineTo(s.width - 12, s.height)..lineTo(12, s.height)..close();
-    canvas.drawPath(path, fill);
-    canvas.drawPath(path, stroke);
-    // ribbon
-    final rp = Paint()..color = AppColors.roseLight.withOpacity(0.7);
-    final lb = Path()
-      ..moveTo(s.width / 2, 28)..quadraticBezierTo(s.width / 2 - 26, 6, s.width / 2 - 44, 20)
-      ..quadraticBezierTo(s.width / 2 - 24, 32, s.width / 2, 28);
-    final rb = Path()
-      ..moveTo(s.width / 2, 28)..quadraticBezierTo(s.width / 2 + 26, 6, s.width / 2 + 44, 20)
-      ..quadraticBezierTo(s.width / 2 + 24, 32, s.width / 2, 28);
-    canvas.drawPath(lb, rp);
-    canvas.drawPath(rb, rp);
-    canvas.drawCircle(Offset(s.width / 2, 28), 5, Paint()..color = AppColors.rose.withOpacity(0.6));
+    final cx = s.width / 2;
+    final knotY = 22.0;
+
+    final ribbonFill = Paint()..color = color;
+    final ribbonShadow = Paint()
+      ..color = Color.lerp(color, Colors.black, 0.18)!
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    final ribbonLight = Paint()
+      ..color = Color.lerp(color, Colors.white, 0.3)!.withOpacity(0.5)
+      ..strokeWidth = 1.0;
+
+    // Sol loop
+    final leftLoop = Path()
+      ..moveTo(cx - 4, knotY)
+      ..quadraticBezierTo(cx - 28, knotY - 14, cx - 38, knotY - 4)
+      ..quadraticBezierTo(cx - 36, knotY + 6, cx - 22, knotY + 8)
+      ..quadraticBezierTo(cx - 12, knotY + 6, cx - 4, knotY)
+      ..close();
+    canvas.drawPath(leftLoop, ribbonFill);
+    canvas.drawPath(leftLoop, ribbonShadow);
+    canvas.drawLine(Offset(cx - 30, knotY - 6),
+        Offset(cx - 22, knotY + 4), ribbonLight);
+
+    // Sağ loop
+    final rightLoop = Path()
+      ..moveTo(cx + 4, knotY)
+      ..quadraticBezierTo(cx + 28, knotY - 14, cx + 38, knotY - 4)
+      ..quadraticBezierTo(cx + 36, knotY + 6, cx + 22, knotY + 8)
+      ..quadraticBezierTo(cx + 12, knotY + 6, cx + 4, knotY)
+      ..close();
+    canvas.drawPath(rightLoop, ribbonFill);
+    canvas.drawPath(rightLoop, ribbonShadow);
+    canvas.drawLine(Offset(cx + 30, knotY - 6),
+        Offset(cx + 22, knotY + 4), ribbonLight);
+
+    // Sol kuyruk (aşağı sarkık)
+    final leftTail = Path()
+      ..moveTo(cx - 5, knotY + 4)
+      ..quadraticBezierTo(cx - 12, knotY + 18, cx - 16, knotY + 32)
+      ..lineTo(cx - 8, knotY + 32)
+      ..quadraticBezierTo(cx - 4, knotY + 18, cx - 1, knotY + 6)
+      ..close();
+    canvas.drawPath(leftTail, ribbonFill);
+    canvas.drawPath(leftTail, ribbonShadow);
+
+    // Sağ kuyruk
+    final rightTail = Path()
+      ..moveTo(cx + 5, knotY + 4)
+      ..quadraticBezierTo(cx + 12, knotY + 18, cx + 16, knotY + 32)
+      ..lineTo(cx + 8, knotY + 32)
+      ..quadraticBezierTo(cx + 4, knotY + 18, cx + 1, knotY + 6)
+      ..close();
+    canvas.drawPath(rightTail, ribbonFill);
+    canvas.drawPath(rightTail, ribbonShadow);
+
+    // Orta düğüm — yatay dilim
+    final knotRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(cx, knotY), width: 16, height: 16),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(knotRect, ribbonFill);
+    canvas.drawRRect(knotRect, ribbonShadow);
+    // Düğümün içine ince çizgi (kıvrım)
+    canvas.drawLine(
+      Offset(cx, knotY - 6),
+      Offset(cx, knotY + 6),
+      Paint()
+        ..color = Color.lerp(color, Colors.black, 0.25)!
+        ..strokeWidth = 1.2,
+    );
   }
 
   @override
-  bool shouldRepaint(WrapperPainter old) => old.color != color;
+  bool shouldRepaint(_RibbonPainter old) => old.color != color;
 }
 
 // ── Primary Button ─────────────────────────────────────────

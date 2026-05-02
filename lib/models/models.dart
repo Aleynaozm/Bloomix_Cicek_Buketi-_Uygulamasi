@@ -1,5 +1,39 @@
 import 'package:flutter/material.dart';
 
+// ── PlacedFlowerData ─────────────────────────────────────
+/// Tasarım canvas'ında konumlandırılmış bir çiçek.
+/// Pozisyon (0..1, 0..1) normalize. Scale 0.5..2.0. Rotation radyan.
+/// FreeDesign + AlphabetDome ortak render formatı.
+class PlacedFlowerData {
+  final String id;
+  final Flower flower;
+  final Offset position;
+  final double scale;
+  final double rotation;
+
+  const PlacedFlowerData({
+    required this.id,
+    required this.flower,
+    required this.position,
+    this.scale = 1.0,
+    this.rotation = 0.0,
+  });
+
+  PlacedFlowerData copyWith({
+    Flower? flower,
+    Offset? position,
+    double? scale,
+    double? rotation,
+  }) =>
+      PlacedFlowerData(
+        id: id,
+        flower: flower ?? this.flower,
+        position: position ?? this.position,
+        scale: scale ?? this.scale,
+        rotation: rotation ?? this.rotation,
+      );
+}
+
 // ── Flower ──────────────────────────────────────────────
 class Flower {
   final String letter;
@@ -19,37 +53,39 @@ class Flower {
   });
 }
 
-// ── Wrapper ──────────────────────────────────────────────
-enum WrapperStyle { pastelPink, pastelBlue, pastelLilac, pastelGreen, pastelYellow }
+// ── Ribbon (kurdele) ─────────────────────────────────────
+/// Buketin sapını saran kurdele. Lego konsepti gereği kağıt sargı yok;
+/// saplar Lego yeşili, sadece kurdele renk olarak değişiyor.
+enum RibbonStyle { red, pink, gold, purple, blue }
 
-extension WrapperStyleExt on WrapperStyle {
+extension RibbonStyleExt on RibbonStyle {
   String get label {
     switch (this) {
-      case WrapperStyle.pastelPink:
-        return 'Pastel Pembe';
-      case WrapperStyle.pastelBlue:
-        return 'Pastel Mavi';
-      case WrapperStyle.pastelLilac:
-        return 'Pastel Lila';
-      case WrapperStyle.pastelGreen:
-        return 'Pastel Yeşil';
-      case WrapperStyle.pastelYellow:
-        return 'Pastel Sarı';
+      case RibbonStyle.red:
+        return 'Kırmızı';
+      case RibbonStyle.pink:
+        return 'Pembe';
+      case RibbonStyle.gold:
+        return 'Altın';
+      case RibbonStyle.purple:
+        return 'Mor';
+      case RibbonStyle.blue:
+        return 'Mavi';
     }
   }
 
   Color get color {
     switch (this) {
-      case WrapperStyle.pastelPink:
-        return const Color(0xFFF8CDD8);
-      case WrapperStyle.pastelBlue:
-        return const Color(0xFFBDDDF0);
-      case WrapperStyle.pastelLilac:
-        return const Color(0xFFD8C5EC);
-      case WrapperStyle.pastelGreen:
-        return const Color(0xFFC8E2C5);
-      case WrapperStyle.pastelYellow:
-        return const Color(0xFFF8E8B8);
+      case RibbonStyle.red:
+        return const Color(0xFFD32030);
+      case RibbonStyle.pink:
+        return const Color(0xFFFF74B3);
+      case RibbonStyle.gold:
+        return const Color(0xFFE0B040);
+      case RibbonStyle.purple:
+        return const Color(0xFF8848B8);
+      case RibbonStyle.blue:
+        return const Color(0xFF3070D0);
     }
   }
 }
@@ -107,7 +143,7 @@ class Bouquet {
   final String id;
   final String name;
   final List<Flower> flowers;
-  final WrapperStyle wrapper;
+  final RibbonStyle ribbon;
   final BouquetSize size;
   final String? giftMessage;
   final bool isFavorite;
@@ -116,7 +152,7 @@ class Bouquet {
     required this.id,
     required this.name,
     required this.flowers,
-    this.wrapper = WrapperStyle.pastelPink,
+    this.ribbon = RibbonStyle.red,
     this.size = BouquetSize.medium,
     this.giftMessage,
     this.isFavorite = false,
@@ -131,7 +167,7 @@ class Bouquet {
   Bouquet copyWith({
     String? name,
     List<Flower>? flowers,
-    WrapperStyle? wrapper,
+    RibbonStyle? ribbon,
     BouquetSize? size,
     String? giftMessage,
     bool? isFavorite,
@@ -140,7 +176,7 @@ class Bouquet {
         id: id,
         name: name ?? this.name,
         flowers: flowers ?? this.flowers,
-        wrapper: wrapper ?? this.wrapper,
+        ribbon: ribbon ?? this.ribbon,
         size: size ?? this.size,
         giftMessage: giftMessage ?? this.giftMessage,
         isFavorite: isFavorite ?? this.isFavorite,
