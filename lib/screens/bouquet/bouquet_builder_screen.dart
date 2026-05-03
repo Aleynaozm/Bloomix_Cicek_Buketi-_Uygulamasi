@@ -1,16 +1,12 @@
-import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../theme/app_theme.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/widgets.dart';
 import '../../widgets/save_to_collection_sheet.dart';
+import '../../widgets/share_sheet.dart';
 import 'customize_screen.dart';
 
 /// Buket Önizleme — bir önceki ekrandaki tasarımı kullanır.
@@ -26,35 +22,10 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   /// RepaintBoundary key — paylaş butonu bu sahneyi PNG'e çevirir.
   final GlobalKey _previewKey = GlobalKey();
 
-  Future<void> _share(Bouquet b) async {
-    try {
-      final boundary = _previewKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        await Share.share(
-            '🌸 Bloomix tasarımım: ${b.name}\n${b.legoCount} brick · ${b.size.label}');
-        return;
-      }
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        await Share.share('🌸 Bloomix tasarımım: ${b.name}');
-        return;
-      }
-      final dir = await getTemporaryDirectory();
-      final file = File(
-          '${dir.path}/bloomix_${b.id}_${DateTime.now().millisecondsSinceEpoch}.png');
-      await file.writeAsBytes(byteData.buffer.asUint8List());
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text:
-            '🌸 Bloomix tasarımım: ${b.name}\n${b.legoCount} brick · ${b.size.label} · ₺${b.price.toStringAsFixed(0)}\n\nBloomix ile sen de tasarla.',
-      );
-    } catch (e) {
-      // Hatada düşük seviye text share fallback
-      await Share.share('🌸 Bloomix tasarımım: ${b.name}');
-    }
+  /// Paylaşım sheet'ini açar — kullanıcı PNG İndir / Hikaye / Hızlı Paylaş seçer.
+  /// PNG render + watermark ekleme + galeriye kayıt veya share, sheet içinde.
+  void _share(Bouquet b) {
+    ShareSheet.show(context, previewKey: _previewKey, bouquet: b);
   }
 
   void _toast(String msg, {Color? bg}) {
