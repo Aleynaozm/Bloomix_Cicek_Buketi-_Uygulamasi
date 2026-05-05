@@ -22,8 +22,10 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   /// RepaintBoundary key — paylaş butonu bu sahneyi PNG'e çevirir.
   final GlobalKey _previewKey = GlobalKey();
 
-  /// Paylaşım sheet'ini açar — kullanıcı PNG İndir / Hikaye / Hızlı Paylaş seçer.
-  /// PNG render + watermark ekleme + galeriye kayıt veya share, sheet içinde.
+  List<PlacedFlowerData> _editablePlaced = [];
+  bool _initialized = false;
+  String? _selectedId;
+
   void _share(Bouquet b) {
     ShareSheet.show(context, previewKey: _previewKey, bouquet: b);
   }
@@ -33,11 +35,9 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: bg ?? AppColors.rose,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         content: Row(children: [
-          const Icon(Icons.check_circle_outline_rounded,
-              color: Colors.white),
+          const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
           const SizedBox(width: 10),
           Expanded(
               child: Text(msg,
@@ -49,11 +49,78 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     );
   }
 
+  void _select(String? id) => setState(() => _selectedId = id);
+
+  void _moveFlower(String id, Offset newPos) {
+    final i = _editablePlaced.indexWhere((p) => p.id == id);
+    if (i < 0) return;
+    setState(() {
+      _editablePlaced[i] = _editablePlaced[i].copyWith(
+        position: Offset(
+          newPos.dx.clamp(0.05, 0.95),
+          newPos.dy.clamp(0.05, 0.75),
+        ),
+      );
+    });
+  }
+
+  void _setScale(String id, double s) {
+    final i = _editablePlaced.indexWhere((p) => p.id == id);
+    if (i < 0) return;
+    setState(() => _editablePlaced[i] = _editablePlaced[i].copyWith(scale: s));
+  }
+
+  void _setRotation(String id, double r) {
+    final i = _editablePlaced.indexWhere((p) => p.id == id);
+    if (i < 0) return;
+    setState(() => _editablePlaced[i] = _editablePlaced[i].copyWith(rotation: r));
+  }
+
+  void _bringForward(String id) {
+    final i = _editablePlaced.indexWhere((p) => p.id == id);
+    if (i < 0 || i == _editablePlaced.length - 1) return;
+    setState(() {
+      final item = _editablePlaced.removeAt(i);
+      _editablePlaced.insert(i + 1, item);
+    });
+  }
+
+  void _sendBackward(String id) {
+    final i = _editablePlaced.indexWhere((p) => p.id == id);
+    if (i <= 0) return;
+    setState(() {
+      final item = _editablePlaced.removeAt(i);
+      _editablePlaced.insert(i - 1, item);
+    });
+  }
+
+  void _deleteFlower(String id) {
+    setState(() {
+      _editablePlaced.removeWhere((p) => p.id == id);
+      if (_selectedId == id) _selectedId = null;
+    });
+  }
+
+  PlacedFlowerData? get _selectedFlower {
+    if (_selectedId == null) return null;
+    try {
+      return _editablePlaced.firstWhere((p) => p.id == _selectedId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(builder: (ctx, prov, _) {
       final isFreeDesign = prov.isFreeDesign;
       final placed = prov.placedFlowers;
+
+      // Provider'dan gelen listeyi lokal state'e ilk seferinde kopyala
+      if (!_initialized && placed.isNotEmpty) {
+        _editablePlaced = List.from(placed);
+        _initialized = true;
+      }
       final bouquet = prov.currentBouquet;
       final isFavorite =
           bouquet != null && prov.isFavorite(bouquet.id);
@@ -112,34 +179,42 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
         body: SafeArea(
           top: false,
           child: Column(children: [
-            // ── Buket önizleme — RepaintBoundary ile paylaşılabilir ──
+            // ── Buket canvas — sürüklenebilir + RepaintBoundary ──
             Expanded(
               flex: 5,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: placed.isEmpty
+                child: _editablePlaced.isEmpty
                     ? const Center(
                         child: Text('Çiçek yok',
-                            style:
-                                TextStyle(color: AppColors.textLight)),
+                            style: TextStyle(color: AppColors.textLight)),
                       )
-                    : Center(
-                        child: RepaintBoundary(
-                          key: _previewKey,
-                          child: Container(
-                            color: AppColors.cream,
-                            padding: const EdgeInsets.all(16),
-                            child: BouquetPreview(
-                              flowers: prov.flowers,
-                              placed: placed,
-                              ribbon: prov.ribbon,
-                              height: 380,
-                            ),
+                    : RepaintBoundary(
+                        key: _previewKey,
+                        child: Container(
+                          color: AppColors.cream,
+                          child: _DraggableBouquetCanvas(
+                            placed: _editablePlaced,
+                            selectedId: _selectedId,
+                            onSelect: _select,
+                            onMove: _moveFlower,
+                            onTapEmpty: () => _select(null),
                           ),
                         ),
                       ),
               ),
             ),
+
+            // ── Seçili çiçek kontrol paneli ───────────────────────
+            if (_selectedFlower != null)
+              _FlowerControls(
+                placed: _selectedFlower!,
+                onScale: (s) => _setScale(_selectedFlower!.id, s),
+                onRotate: (r) => _setRotation(_selectedFlower!.id, r),
+                onForward: () => _bringForward(_selectedFlower!.id),
+                onBackward: () => _sendBackward(_selectedFlower!.id),
+                onDelete: () => _deleteFlower(_selectedFlower!.id),
+              ),
 
             // ── Alfabe akışında: harf adı + chip listesi ───────────
             if (!isFreeDesign && prov.flowers.isNotEmpty) ...[
@@ -330,5 +405,213 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
         ),
       );
     });
+  }
+}
+
+class _DraggableBouquetCanvas extends StatelessWidget {
+  final List<PlacedFlowerData> placed;
+  final String? selectedId;
+  final ValueChanged<String> onSelect;
+  final void Function(String id, Offset newNormalized) onMove;
+  final VoidCallback onTapEmpty;
+
+  const _DraggableBouquetCanvas({
+    required this.placed,
+    required this.selectedId,
+    required this.onSelect,
+    required this.onMove,
+    required this.onTapEmpty,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (_, constraints) {
+      final w = constraints.maxWidth;
+      final h = constraints.maxHeight;
+      return GestureDetector(
+        onTap: onTapEmpty,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: w,
+          height: h,
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              // Şablon (sap + yapraklar)
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/bouquet_template.png',
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                ),
+              ),
+              ...placed.map((p) {
+                final selected = p.id == selectedId;
+                const base = 70.0;
+                final size = base * p.scale;
+                return Positioned(
+                  left: p.position.dx * w - size / 2,
+                  top: p.position.dy * h - size / 2,
+                  width: size,
+                  height: size,
+                  child: GestureDetector(
+                    onTap: () => onSelect(p.id),
+                    onPanStart: (_) => onSelect(p.id),
+                    onPanUpdate: (d) {
+                      final nx = (p.position.dx * w + d.delta.dx) / w;
+                      final ny = (p.position.dy * h + d.delta.dy) / h;
+                      onMove(p.id, Offset(nx, ny));
+                    },
+                    child: Transform.rotate(
+                      angle: p.rotation,
+                      child: Stack(children: [
+                        Image.asset(
+                          p.flower.assetPath,
+                          width: size,
+                          height: size,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: p.flower.color.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                        if (selected)
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: AppColors.rose, width: 2.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.rose.withOpacity(0.35),
+                                    blurRadius: 10,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ]),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _FlowerControls extends StatelessWidget {
+  final PlacedFlowerData placed;
+  final ValueChanged<double> onScale;
+  final ValueChanged<double> onRotate;
+  final VoidCallback onForward;
+  final VoidCallback onBackward;
+  final VoidCallback onDelete;
+
+  const _FlowerControls({
+    required this.placed,
+    required this.onScale,
+    required this.onRotate,
+    required this.onForward,
+    required this.onBackward,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+      ),
+      child: Column(children: [
+        Row(children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+                color: placed.flower.color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(placed.flower.nameTr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+          IconButton(
+            tooltip: 'Geri katmana',
+            icon: const Icon(Icons.flip_to_back_rounded, size: 20),
+            color: AppColors.textMid,
+            onPressed: onBackward,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+          IconButton(
+            tooltip: 'Öne getir',
+            icon: const Icon(Icons.flip_to_front_rounded, size: 20),
+            color: AppColors.textMid,
+            onPressed: onForward,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+          IconButton(
+            tooltip: 'Sil',
+            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+            color: AppColors.rose,
+            onPressed: onDelete,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ]),
+        Row(children: [
+          const Icon(Icons.zoom_out_map_rounded,
+              size: 16, color: AppColors.textLight),
+          Expanded(
+            child: Slider(
+              value: placed.scale.clamp(0.5, 2.0),
+              min: 0.5,
+              max: 2.0,
+              activeColor: AppColors.rose,
+              onChanged: onScale,
+            ),
+          ),
+          SizedBox(
+            width: 36,
+            child: Text('${(placed.scale * 100).toInt()}%',
+                style: GoogleFonts.poppins(
+                    fontSize: 11, color: AppColors.textMid)),
+          ),
+        ]),
+        Row(children: [
+          const Icon(Icons.rotate_right_rounded,
+              size: 16, color: AppColors.textLight),
+          Expanded(
+            child: Slider(
+              value: placed.rotation.clamp(-3.14159, 3.14159),
+              min: -3.14159,
+              max: 3.14159,
+              activeColor: AppColors.rose,
+              onChanged: onRotate,
+            ),
+          ),
+          SizedBox(
+            width: 36,
+            child: Text('${(placed.rotation * 180 / 3.14159).toInt()}°',
+                style: GoogleFonts.poppins(
+                    fontSize: 11, color: AppColors.textMid)),
+          ),
+        ]),
+      ]),
+    );
   }
 }

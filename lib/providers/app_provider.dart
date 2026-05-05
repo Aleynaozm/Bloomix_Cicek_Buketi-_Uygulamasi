@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../models/models.dart';
 import '../data/flower_data.dart';
 import '../services/supabase_service.dart';
+import '../services/local_storage.dart';
 
 class AppProvider extends ChangeNotifier {
   AppProvider() {
@@ -18,13 +19,78 @@ class AppProvider extends ChangeNotifier {
   AppUser? get user => _user;
   bool get isLoggedIn => SupabaseService.isLoggedIn;
 
+  // Hangi kullanıcı için veri yüklendiğini takip eder — tekrar yüklemeyi önler.
+  String? _loadedForUserId;
+
   /// Mevcut session'dan AppUser üretir + auth değişikliklerini dinler.
   void _initAuth() {
     _hydrateUserFromSession();
+    _maybeLoadUserData();
     _authSub = SupabaseService.onAuthStateChange.listen((event) {
       _hydrateUserFromSession();
+      _maybeLoadUserData();
       notifyListeners();
     });
+  }
+
+  /// Yüklü kullanıcı farklıysa veriyi yükler (tekrar yüklemeyi önler).
+  void _maybeLoadUserData() {
+    final uid = _user?.id;
+    if (uid != null && uid != _loadedForUserId) {
+      _loadedForUserId = uid;
+      _loadUserData();
+    } else if (uid == null) {
+      _loadedForUserId = null;
+    }
+  }
+
+  Future<void> _loadUserData() async {
+    final uid = _user?.id ?? SupabaseService.currentUser?.id;
+    if (uid == null) return;
+    final saved = await LocalStorage.loadSaved(uid);
+    final cols = await LocalStorage.loadCollections(uid);
+    final cart = await LocalStorage.loadCart(uid);
+
+    _saved
+      ..clear()
+      ..addAll(saved);
+
+    if (cols.isEmpty) {
+      // İlk giriş — sadece Favoriler koleksiyonu zaten var
+    } else {
+      _collections
+        ..clear()
+        ..addAll(cols);
+      // sys_favorites yoksa ekle
+      if (!_collections.any((c) => c.id == 'sys_favorites')) {
+        _collections.insert(
+          0,
+          BouquetCollection(
+            id: 'sys_favorites',
+            name: 'Favoriler',
+            emoji: '❤️',
+            isSystem: true,
+            createdAt: DateTime(2024, 1, 1),
+          ),
+        );
+      }
+    }
+
+    _cart
+      ..clear()
+      ..addAll(cart);
+
+    notifyListeners();
+  }
+
+  void _persist() {
+    final uid = _user?.id;
+    if (uid == null) return;
+    Future.wait([
+      LocalStorage.saveSaved(uid, List.from(_saved)),
+      LocalStorage.saveCollections(uid, List.from(_collections)),
+      LocalStorage.saveCart(uid, List.from(_cart)),
+    ]).catchError((_) {});
   }
 
   void _hydrateUserFromSession() {
@@ -59,20 +125,21 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _loadedForUserId = null;
     await SupabaseService.signOut();
-    // Bouquet/sipariş gibi geçici state'leri temizle:
     _currentBouquet = null;
     _flowers = [];
     _placedFlowers = [];
     _isFreeDesign = false;
     _inputName = '';
     _saved.clear();
-    // System Favoriler hariç tüm koleksiyonları sil + Favoriler'i boşalt
+    _cart.clear();
     _collections.removeWhere((c) => !c.isSystem);
     final favIdx = _collections.indexWhere((c) => c.id == 'sys_favorites');
     if (favIdx >= 0) {
       _collections[favIdx] = _collections[favIdx].copyWith(savedBouquetIds: []);
     }
+    // Lokal veriyi silme — kullanıcı tekrar girince geri yüklensin
     notifyListeners();
   }
 
@@ -265,10 +332,10 @@ class AppProvider extends ChangeNotifier {
     );
     _saved.add(saved);
     notifyListeners();
+    _persist();
     return saved.id;
   }
 
-  /// Buketi tamamen sil (tüm koleksiyonlardan da çıkar).
   void unsaveBouquet(String savedId) {
     _saved.removeWhere((s) => s.id == savedId);
     for (int i = 0; i < _collections.length; i++) {
@@ -281,6 +348,7 @@ class AppProvider extends ChangeNotifier {
       }
     }
     notifyListeners();
+    _persist();
   }
 
   /// ── Collection CRUD ────────────────────────────────────
@@ -298,6 +366,7 @@ class AppProvider extends ChangeNotifier {
     );
     _collections.add(c);
     notifyListeners();
+    _persist();
     return c.id;
   }
 
@@ -311,6 +380,7 @@ class AppProvider extends ChangeNotifier {
       description: description,
     );
     notifyListeners();
+    _persist();
   }
 
   void deleteCollection(String collectionId) {
@@ -318,6 +388,7 @@ class AppProvider extends ChangeNotifier {
     if (i < 0 || _collections[i].isSystem) return;
     _collections.removeAt(i);
     notifyListeners();
+    _persist();
   }
 
   /// ── Membership ────────────────────────────────────────
@@ -338,6 +409,7 @@ class AppProvider extends ChangeNotifier {
       savedBouquetIds: [...c.savedBouquetIds, savedId],
     );
     notifyListeners();
+    _persist();
   }
 
   void removeFromCollection(String savedId, String collectionId) {
@@ -350,6 +422,7 @@ class AppProvider extends ChangeNotifier {
           c.savedBouquetIds.where((id) => id != savedId).toList(),
     );
     notifyListeners();
+    _persist();
   }
 
   /// ── Favorites compatibility ────────────────────────────
@@ -407,11 +480,13 @@ class AppProvider extends ChangeNotifier {
       ));
     }
     notifyListeners();
+    _persist();
   }
 
   void removeFromCart(String cartItemId) {
     _cart.removeWhere((it) => it.id == cartItemId);
     notifyListeners();
+    _persist();
   }
 
   void updateCartQty(String cartItemId, int qty) {
@@ -423,11 +498,13 @@ class AppProvider extends ChangeNotifier {
       _cart[idx] = _cart[idx].copyWith(qty: qty);
     }
     notifyListeners();
+    _persist();
   }
 
   void clearCart() {
     _cart.clear();
     notifyListeners();
+    _persist();
   }
 
   // ── Notifications ─────────────────────────────────────────────────────────

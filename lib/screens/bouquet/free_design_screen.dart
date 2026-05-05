@@ -106,7 +106,7 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
       _placed.add(PlacedFlowerData(
         id: id,
         flower: f,
-        position: const Offset(0.5, 0.45),
+        position: const Offset(0.5, 0.32),
       ));
       _selectedId = id;
     });
@@ -131,8 +131,8 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
     if (i < 0) return;
     setState(() => _placed[i] = _placed[i].copyWith(
         position: Offset(
-          newNormalized.dx.clamp(0.05, 0.95),
-          newNormalized.dy.clamp(0.05, 0.95),
+          newNormalized.dx.clamp(0.08, 0.92),
+          newNormalized.dy.clamp(0.05, 0.70),
         )));
   }
 
@@ -206,14 +206,15 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
     });
   }
 
+  // Buket şablonu çiçek bölgesi: y ∈ [0.08, 0.55], x ∈ [0.18, 0.82]
   void _genRomantic(List<Flower> pool, Random rng) {
     const n = 9;
     const cx = 0.5;
-    const cy = 0.42;
-    const radius = 0.18;
+    const cy = 0.30;
+    const radius = 0.16;
     for (int i = 0; i < n; i++) {
       final t = (i - (n - 1) / 2) / ((n - 1) / 2);
-      final angle = t * pi / 2.5; // -72°..72°
+      final angle = t * pi / 2.5;
       final x = cx + sin(angle) * radius;
       final y = cy + (1 - cos(angle)) * radius * 0.85;
       _placed.add(PlacedFlowerData(
@@ -228,7 +229,7 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
 
   void _genMinimal(List<Flower> pool, Random rng) {
     const n = 4;
-    const cy = 0.46;
+    const cy = 0.28;
     for (int i = 0; i < n; i++) {
       final t = (n == 1) ? 0.0 : (i - (n - 1) / 2) / ((n - 1) / 2);
       final x = 0.5 + t * 0.18;
@@ -249,8 +250,8 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
         id: _nextId(),
         flower: pool[rng.nextInt(pool.length)],
         position: Offset(
-          0.18 + rng.nextDouble() * 0.64,
-          0.20 + rng.nextDouble() * 0.55,
+          0.20 + rng.nextDouble() * 0.60,
+          0.08 + rng.nextDouble() * 0.44,
         ),
         scale: 0.75 + rng.nextDouble() * 0.5,
         rotation: (rng.nextDouble() - 0.5) * 0.7,
@@ -259,14 +260,14 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
   }
 
   void _genSymmetric(List<Flower> pool, Random rng) {
-    // 3x3 grid + ortada büyük 1 = 10 çiçek
+    // 3x3 grid buket çiçek bölgesine sığdırılmış
     const cols = 3;
     const rows = 3;
     final gridFlowers = List.generate(rows * cols, (i) {
       final row = i ~/ cols;
       final col = i % cols;
-      final x = 0.32 + col * 0.18;
-      final y = 0.26 + row * 0.16;
+      final x = 0.34 + col * 0.16;
+      final y = 0.12 + row * 0.14;
       return PlacedFlowerData(
         id: _nextId(),
         flower: pool[i % pool.length],
@@ -275,11 +276,10 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
       );
     });
     _placed.addAll(gridFlowers);
-    // Merkez büyük çiçek
     _placed.add(PlacedFlowerData(
       id: _nextId(),
       flower: pool[rng.nextInt(pool.length)],
-      position: const Offset(0.5, 0.42),
+      position: const Offset(0.5, 0.28),
       scale: 1.4,
     ));
   }
@@ -674,52 +674,58 @@ class _DesignCanvas extends StatelessWidget {
       final h = constraints.maxHeight;
       return DragTarget<Flower>(
         onAccept: (f) {
-          // Drop = canvas merkezine ekle. Konum için sonra sürükler.
-          onAcceptDrop(f, const Offset(0.5, 0.45));
+          onAcceptDrop(f, const Offset(0.5, 0.30));
         },
         builder: (_, __, ___) => GestureDetector(
           onTap: onTapEmpty,
           behavior: HitTestBehavior.opaque,
-          child: CustomPaint(
-            painter: _DotGridPainter(),
-            child: SizedBox(
-              width: w,
-              height: h,
-              child: placed.isEmpty
-                  ? _CanvasEmptyHint()
-                  : Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: placed.map((p) {
-                        final selected = p.id == selectedId;
-                        const flowerBase = 70.0;
-                        final size = flowerBase * p.scale;
-                        return Positioned(
-                          left: p.position.dx * w - size / 2,
-                          top: p.position.dy * h - size / 2,
-                          width: size,
-                          height: size,
-                          child: GestureDetector(
-                            onTap: () => onSelect(p.id),
-                            onPanStart: (_) => onSelect(p.id),
-                            onPanUpdate: (d) {
-                              final newDx =
-                                  (p.position.dx * w + d.delta.dx) / w;
-                              final newDy =
-                                  (p.position.dy * h + d.delta.dy) / h;
-                              onMove(p.id, Offset(newDx, newDy));
-                            },
-                            child: Transform.rotate(
-                              angle: p.rotation,
-                              child: _FlowerImage(
-                                flower: p.flower,
-                                size: size,
-                                selected: selected,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+          child: SizedBox(
+            width: w,
+            height: h,
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                // ── Buket şablon görseli (sap + yapraklar) ──
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/bouquet_template.png',
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                  ),
+                ),
+                // ── Boş ipucu (şablon üstünde, sadece çiçek yokken) ──
+                if (placed.isEmpty) _CanvasEmptyHint(),
+
+                // ── Yerleştirilmiş çiçekler ──
+                ...placed.map((p) {
+                  final selected = p.id == selectedId;
+                  const flowerBase = 70.0;
+                  final size = flowerBase * p.scale;
+                  return Positioned(
+                    left: p.position.dx * w - size / 2,
+                    top: p.position.dy * h - size / 2,
+                    width: size,
+                    height: size,
+                    child: GestureDetector(
+                      onTap: () => onSelect(p.id),
+                      onPanStart: (_) => onSelect(p.id),
+                      onPanUpdate: (d) {
+                        final newDx = (p.position.dx * w + d.delta.dx) / w;
+                        final newDy = (p.position.dy * h + d.delta.dy) / h;
+                        onMove(p.id, Offset(newDx, newDy));
+                      },
+                      child: Transform.rotate(
+                        angle: p.rotation,
+                        child: _FlowerImage(
+                          flower: p.flower,
+                          size: size,
+                          selected: selected,
+                        ),
+                      ),
                     ),
+                  );
+                }),
+              ],
             ),
           ),
         ),
@@ -731,54 +737,33 @@ class _DesignCanvas extends StatelessWidget {
 class _CanvasEmptyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-                color: AppColors.roseLight.withOpacity(0.4),
-                shape: BoxShape.circle),
-            child: const Center(
-                child: Icon(Icons.local_florist_rounded,
-                    size: 46, color: AppColors.rose)),
+    return Positioned(
+      top: 12,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.white.withOpacity(0.82),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.border),
           ),
-          const SizedBox(height: 14),
-          Text('Boş tuval',
-              style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textDark)),
-          const SizedBox(height: 4),
-          Text('Aşağıdaki paletten çiçek dokun veya sürükle.\nOtomatik için 🔥 butonuna bas.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: AppColors.textMid,
-                  height: 1.5)),
-        ]),
+          child: Text(
+            'Aşağıdan çiçek ekle veya 🔥 ile otomatik doldur',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMid,
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _DotGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size s) {
-    final p = Paint()..color = AppColors.border.withOpacity(0.5);
-    const spacing = 24.0;
-    for (double x = 0; x < s.width; x += spacing) {
-      for (double y = 0; y < s.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), 0.7, p);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DotGridPainter old) => false;
-}
 
 class _FlowerImage extends StatelessWidget {
   final Flower flower;
@@ -792,24 +777,16 @@ class _FlowerImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: selected
-          ? BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.rose, width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                    color: AppColors.rose.withOpacity(0.4),
-                    blurRadius: 12,
-                    spreadRadius: 1),
-              ],
-            )
-          : null,
-      child: ClipOval(
-        child: Image.asset(
+    return Stack(
+      children: [
+        Image.asset(
           flower.assetPath,
+          width: size,
+          height: size,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => Container(
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(colors: [
@@ -819,7 +796,23 @@ class _FlowerImage extends StatelessWidget {
             ),
           ),
         ),
-      ),
+        if (selected)
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.rose, width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.rose.withOpacity(0.35),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
