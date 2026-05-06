@@ -9,72 +9,14 @@ import '../../models/models.dart';
 import '../../data/flower_data.dart';
 import 'bouquet_builder_screen.dart';
 
-enum BouquetStyle { romantic, minimal, scattered, symmetric }
-
-extension _BouquetStyleExt on BouquetStyle {
-  String get label {
-    switch (this) {
-      case BouquetStyle.romantic:
-        return 'Romantik';
-      case BouquetStyle.minimal:
-        return 'Minimal';
-      case BouquetStyle.scattered:
-        return 'Dağınık';
-      case BouquetStyle.symmetric:
-        return 'Simetrik';
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case BouquetStyle.romantic:
-        return Icons.favorite_rounded;
-      case BouquetStyle.minimal:
-        return Icons.crop_square_rounded;
-      case BouquetStyle.scattered:
-        return Icons.grain_rounded;
-      case BouquetStyle.symmetric:
-        return Icons.compare_arrows_rounded;
-    }
-  }
-}
-
-enum FlowerPalette { all, warm, cool, pastel }
-
-extension _PaletteExt on FlowerPalette {
-  String get label {
-    switch (this) {
-      case FlowerPalette.all:
-        return 'Tümü';
-      case FlowerPalette.warm:
-        return 'Sıcak';
-      case FlowerPalette.cool:
-        return 'Soğuk';
-      case FlowerPalette.pastel:
-        return 'Pastel';
-    }
-  }
-
-  /// Çiçeği palete göre filtrele — HSV bazlı.
-  bool matches(Flower f) {
-    final hsv = HSVColor.fromColor(f.color);
-    switch (this) {
-      case FlowerPalette.all:
-        return true;
-      case FlowerPalette.warm:
-        return hsv.hue <= 65 || hsv.hue >= 320;
-      case FlowerPalette.cool:
-        return hsv.hue >= 180 && hsv.hue <= 290;
-      case FlowerPalette.pastel:
-        return hsv.value > 0.85 || hsv.saturation < 0.4;
-    }
-  }
-}
+// Sol panel aktif sekmesi
+enum _PanelTab { layers, templates }
 
 /// Buket Tasarla — uygulamanın kalbi.
+/// • Sol panel: Katmanlar sekmesi + Şablonlar sekmesi
 /// • Tap & drag ile canvas'a çiçek ekle
 /// • Seçili çiçeği taşı, döndür, büyüt, ön/arka layer
-/// • 4 stil + 4 palet + 🔥 otomatik buket
+/// • 🔥 otomatik buket
 class FreeDesignScreen extends StatefulWidget {
   const FreeDesignScreen({super.key});
 
@@ -85,8 +27,8 @@ class FreeDesignScreen extends StatefulWidget {
 class _FreeDesignScreenState extends State<FreeDesignScreen> {
   final List<PlacedFlowerData> _placed = [];
   String? _selectedId;
-  BouquetStyle _style = BouquetStyle.romantic;
-  FlowerPalette _palette = FlowerPalette.all;
+  bool _panelOpen = false;
+  _PanelTab _activeTab = _PanelTab.layers;
   int _idCounter = 0;
 
   String _nextId() => 'pf_${_idCounter++}';
@@ -181,115 +123,49 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
     });
   }
 
-  // ── Otomatik buket üretici ────────────────────────────────
+  // ── Otomatik buket (romantik dome, tüm çiçekler) ──────────
   void _autoGenerate() {
-    final pool = flowerAlphabet.values.where(_palette.matches).toList();
-    if (pool.isEmpty) return;
+    final pool = flowerAlphabet.values.toList();
     final rng = Random();
-    setState(() {
-      _placed.clear();
-      _selectedId = null;
-      switch (_style) {
-        case BouquetStyle.romantic:
-          _genRomantic(pool, rng);
-          break;
-        case BouquetStyle.minimal:
-          _genMinimal(pool, rng);
-          break;
-        case BouquetStyle.scattered:
-          _genScattered(pool, rng);
-          break;
-        case BouquetStyle.symmetric:
-          _genSymmetric(pool, rng);
-          break;
-      }
-    });
-  }
-
-  // Buket şablonu çiçek bölgesi: y ∈ [0.08, 0.55], x ∈ [0.18, 0.82]
-  void _genRomantic(List<Flower> pool, Random rng) {
     const n = 9;
     const cx = 0.5;
     const cy = 0.30;
     const radius = 0.16;
-    for (int i = 0; i < n; i++) {
-      final t = (i - (n - 1) / 2) / ((n - 1) / 2);
-      final angle = t * pi / 2.5;
-      final x = cx + sin(angle) * radius;
-      final y = cy + (1 - cos(angle)) * radius * 0.85;
-      _placed.add(PlacedFlowerData(
-        id: _nextId(),
-        flower: pool[rng.nextInt(pool.length)],
-        position: Offset(x, y),
-        scale: 1.0 - t.abs() * 0.15,
-        rotation: t * 0.18,
-      ));
-    }
-  }
-
-  void _genMinimal(List<Flower> pool, Random rng) {
-    const n = 4;
-    const cy = 0.28;
-    for (int i = 0; i < n; i++) {
-      final t = (n == 1) ? 0.0 : (i - (n - 1) / 2) / ((n - 1) / 2);
-      final x = 0.5 + t * 0.18;
-      final y = cy + (i.isEven ? -0.04 : 0.04);
-      _placed.add(PlacedFlowerData(
-        id: _nextId(),
-        flower: pool[rng.nextInt(pool.length)],
-        position: Offset(x, y),
-        scale: 1.15,
-      ));
-    }
-  }
-
-  void _genScattered(List<Flower> pool, Random rng) {
-    const n = 11;
-    for (int i = 0; i < n; i++) {
-      _placed.add(PlacedFlowerData(
-        id: _nextId(),
-        flower: pool[rng.nextInt(pool.length)],
-        position: Offset(
-          0.20 + rng.nextDouble() * 0.60,
-          0.08 + rng.nextDouble() * 0.44,
-        ),
-        scale: 0.75 + rng.nextDouble() * 0.5,
-        rotation: (rng.nextDouble() - 0.5) * 0.7,
-      ));
-    }
-  }
-
-  void _genSymmetric(List<Flower> pool, Random rng) {
-    // 3x3 grid buket çiçek bölgesine sığdırılmış
-    const cols = 3;
-    const rows = 3;
-    final gridFlowers = List.generate(rows * cols, (i) {
-      final row = i ~/ cols;
-      final col = i % cols;
-      final x = 0.34 + col * 0.16;
-      final y = 0.12 + row * 0.14;
-      return PlacedFlowerData(
-        id: _nextId(),
-        flower: pool[i % pool.length],
-        position: Offset(x, y),
-        scale: 0.95,
-      );
+    setState(() {
+      _placed.clear();
+      _selectedId = null;
+      for (int i = 0; i < n; i++) {
+        final t = (i - (n - 1) / 2) / ((n - 1) / 2);
+        final angle = t * pi / 2.5;
+        final x = cx + sin(angle) * radius;
+        final y = cy + (1 - cos(angle)) * radius * 0.85;
+        _placed.add(PlacedFlowerData(
+          id: _nextId(),
+          flower: pool[rng.nextInt(pool.length)],
+          position: Offset(x, y),
+          scale: 1.0 - t.abs() * 0.15,
+          rotation: t * 0.18,
+        ));
+      }
     });
-    _placed.addAll(gridFlowers);
-    _placed.add(PlacedFlowerData(
-      id: _nextId(),
-      flower: pool[rng.nextInt(pool.length)],
-      position: const Offset(0.5, 0.28),
-      scale: 1.4,
-    ));
+  }
+
+  // ── Panel toggle ───────────────────────────────────────────
+  void _togglePanel(_PanelTab tab) {
+    setState(() {
+      if (_panelOpen && _activeTab == tab) {
+        _panelOpen = false;
+      } else {
+        _panelOpen = true;
+        _activeTab = tab;
+      }
+    });
   }
 
   // ── Tamamla → BouquetBuilder ──────────────────────────────
   void _confirm() {
     if (_placed.isEmpty) return;
-    // Pozisyonları + scale + rotation ile birlikte provider'a yolla.
     context.read<AppProvider>().setPlacedFlowers(_placed, name: 'Tasarımım');
-    // PUSH (replace değil!) — geri tuşu FreeDesign'a state korunarak döner.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()),
@@ -308,7 +184,7 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
           if (_placed.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.refresh_rounded),
-              tooltip: 'Sil',
+              tooltip: 'Temizle',
               onPressed: _clearAll,
             ),
           IconButton(
@@ -319,336 +195,480 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
           ),
         ],
       ),
-      body: Column(children: [
-        // ── Stil + Palet seçimi (kompakt) ─────────────────────
-        _StyleAndPaletteRow(
-          style: _style,
-          palette: _palette,
-          onStyleChanged: (s) => setState(() => _style = s),
-          onPaletteChanged: (p) => setState(() => _palette = p),
-        ),
+      body: Consumer<AppProvider>(
+        builder: (_, prov, __) => Column(children: [
+          // ── Canvas + Sol Panel ────────────────────────────────
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Sol panel ─────────────────────────────────
+                _LeftPanel(
+                  panelOpen: _panelOpen,
+                  activeTab: _activeTab,
+                  placed: _placed,
+                  selectedId: _selectedId,
+                  currentTemplate: prov.template,
+                  onToggle: _togglePanel,
+                  onSelectLayer: (id) => setState(() {
+                    _selectedId = id;
+                    _panelOpen = false;
+                  }),
+                  onTemplateChanged: (t) {
+                    prov.setTemplate(t);
+                    setState(() => _panelOpen = false);
+                  },
+                ),
 
-        // ── Canvas ────────────────────────────────────────────
-        Expanded(
-          child: Consumer<AppProvider>(
-            builder: (_, prov, __) => _DesignCanvas(
-              placed: _placed,
-              selectedId: _selectedId,
-              onSelect: _select,
-              onMove: _move,
-              onTapEmpty: () => _select(null),
-              onAcceptDrop: (f, normalized) =>
-                  _addAtPosition(f, normalized),
-              template: prov.template,
+                // ── Tasarım alanı ──────────────────────────────
+                Expanded(
+                  child: _DesignCanvas(
+                    placed: _placed,
+                    selectedId: _selectedId,
+                    template: prov.template,
+                    onSelect: (id) {
+                      _select(id);
+                      if (_panelOpen) setState(() => _panelOpen = false);
+                    },
+                    onMove: _move,
+                    onTapEmpty: () {
+                      _select(null);
+                      if (_panelOpen) setState(() => _panelOpen = false);
+                    },
+                    onAcceptDrop: (f, normalized) =>
+                        _addAtPosition(f, normalized),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
 
-        // ── Seçili çiçek kontrol paneli ───────────────────────
-        if (selected != null)
-          _SelectedControls(
-            placed: selected,
-            onScale: (s) => _setScale(selected.id, s),
-            onRotate: (r) => _setRotation(selected.id, r),
-            onForward: () => _bringForward(selected.id),
-            onBackward: () => _sendBackward(selected.id),
-            onDelete: () => _delete(selected.id),
+          // ── Seçili çiçek kontrol paneli ───────────────────────
+          if (selected != null)
+            _SelectedControls(
+              placed: selected,
+              onScale: (s) => _setScale(selected.id, s),
+              onRotate: (r) => _setRotation(selected.id, r),
+              onForward: () => _bringForward(selected.id),
+              onBackward: () => _sendBackward(selected.id),
+              onDelete: () => _delete(selected.id),
+            ),
+
+          // ── Çiçek paleti (alt strip) ──────────────────────────
+          _FlowerPaletteStrip(onTap: _addCenter),
+
+          // ── Tamamla butonu ────────────────────────────────────
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
+            child: GradientButton(
+              label: _placed.isEmpty
+                  ? 'Önce çiçek ekle'
+                  : 'Tasarımı Tamamla (${_placed.length})',
+              icon: _placed.isEmpty ? null : Icons.check_rounded,
+              onPressed: _placed.isEmpty ? null : _confirm,
+            ),
           ),
-
-        // ── Çiçek paleti (alt strip) ──────────────────────────
-        _FlowerPaletteStrip(
-          palette: _palette,
-          onTap: _addCenter,
-        ),
-
-        // ── Tamamla butonu ────────────────────────────────────
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-              16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
-          child: GradientButton(
-            label: _placed.isEmpty
-                ? 'Önce çiçek ekle'
-                : 'Tasarımı Tamamla (${_placed.length})',
-            icon: _placed.isEmpty ? null : Icons.check_rounded,
-            onPressed: _placed.isEmpty ? null : _confirm,
-          ),
-        ),
-      ]),
+        ]),
+      ),
     );
   }
 }
 
-// ── Stil + palet kompakt seçim çubuğu ──────────────────────
-class _StyleAndPaletteRow extends StatelessWidget {
-  final BouquetStyle style;
-  final FlowerPalette palette;
-  final ValueChanged<BouquetStyle> onStyleChanged;
-  final ValueChanged<FlowerPalette> onPaletteChanged;
-  const _StyleAndPaletteRow({
-    required this.style,
-    required this.palette,
-    required this.onStyleChanged,
-    required this.onPaletteChanged,
+// ── Sol Panel ───────────────────────────────────────────────
+/// Row tabanlı açılır/kapanır panel.
+/// Sol taraf: AnimatedContainer (içerik).
+/// Sağ taraf: İki toggle butonu (Katmanlar + Şablonlar).
+class _LeftPanel extends StatelessWidget {
+  final bool panelOpen;
+  final _PanelTab activeTab;
+  final List<PlacedFlowerData> placed;
+  final String? selectedId;
+  final BouquetTemplate currentTemplate;
+  final void Function(_PanelTab) onToggle;
+  final ValueChanged<String> onSelectLayer;
+  final ValueChanged<BouquetTemplate> onTemplateChanged;
+
+  const _LeftPanel({
+    required this.panelOpen,
+    required this.activeTab,
+    required this.placed,
+    required this.selectedId,
+    required this.currentTemplate,
+    required this.onToggle,
+    required this.onSelectLayer,
+    required this.onTemplateChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(
-            bottom: BorderSide(color: AppColors.border, width: 0.5)),
-      ),
-      child: Row(children: [
-        // Stil dropdown
-        Expanded(
-          child: _PickerChip(
-            icon: style.icon,
-            label: 'Stil: ${style.label}',
-            onTap: () async {
-              final v = await showModalBottomSheet<BouquetStyle>(
-                context: context,
-                builder: (_) => _StylePickerSheet(current: style),
-              );
-              if (v != null) onStyleChanged(v);
-            },
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Panel içerik alanı ─────────────────────────────
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          width: panelOpen ? 156 : 0,
+          child: ClipRect(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: panelOpen ? 1.0 : 0.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.97),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.10),
+                      blurRadius: 12,
+                      offset: const Offset(4, 0),
+                    ),
+                  ],
+                ),
+                child: panelOpen
+                    ? (activeTab == _PanelTab.layers
+                        ? _LayersContent(
+                            placed: placed,
+                            selectedId: selectedId,
+                            onSelect: onSelectLayer,
+                          )
+                        : _TemplatesContent(
+                            currentTemplate: currentTemplate,
+                            onChanged: onTemplateChanged,
+                          ))
+                    : const SizedBox.shrink(),
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _PickerChip(
-            icon: Icons.palette_outlined,
-            label: 'Palet: ${palette.label}',
-            onTap: () async {
-              final v = await showModalBottomSheet<FlowerPalette>(
-                context: context,
-                builder: (_) => _PalettePickerSheet(current: palette),
-              );
-              if (v != null) onPaletteChanged(v);
-            },
-          ),
+
+        // ── İki toggle butonu (dikey sütun) ────────────────
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            // Şablonlar butonu
+            _PanelTabButton(
+              icon: Icons.auto_awesome_mosaic_outlined,
+              label: 'Şablon',
+              active: panelOpen && activeTab == _PanelTab.templates,
+              onTap: () => onToggle(_PanelTab.templates),
+            ),
+            const SizedBox(height: 6),
+            // Katmanlar butonu
+            _PanelTabButton(
+              icon: Icons.layers_rounded,
+              label: 'Katman',
+              badge: placed.isNotEmpty ? '${placed.length}' : null,
+              active: panelOpen && activeTab == _PanelTab.layers,
+              onTap: () => onToggle(_PanelTab.layers),
+            ),
+          ],
         ),
-      ]),
+      ],
     );
   }
 }
 
-class _PickerChip extends StatelessWidget {
+// ── Panel Tab Butonu ────────────────────────────────────────
+class _PanelTabButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? badge;
+  final bool active;
   final VoidCallback onTap;
-  const _PickerChip(
-      {required this.icon, required this.label, required this.onTap});
+
+  const _PanelTabButton({
+    required this.icon,
+    required this.label,
+    this.badge,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        width: 28,
+        height: 64,
         decoration: BoxDecoration(
-          color: AppColors.cream,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.border),
+          color: active ? AppColors.rose : Colors.white.withOpacity(0.92),
+          borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 8,
+              offset: const Offset(3, 0),
+            ),
+          ],
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 16, color: AppColors.rose),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              active ? Icons.chevron_left_rounded : icon,
+              size: 15,
+              color: active ? Colors.white : AppColors.rose,
+            ),
+            if (!active) ...[
+              const SizedBox(height: 2),
+              if (badge != null)
+                Text(badge!,
+                    style: GoogleFonts.poppins(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.rose))
+              else
+                Text(label,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                        fontSize: 7,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.rose,
+                        letterSpacing: 0.2)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Katmanlar İçerik ────────────────────────────────────────
+/// Placed çiçek listesi — tersine sıralanmış (en üst katman önce).
+/// Z-order, _placed listesinin sırasıyla senkronize (son index = en üstte).
+class _LayersContent extends StatelessWidget {
+  final List<PlacedFlowerData> placed;
+  final String? selectedId;
+  final ValueChanged<String> onSelect;
+
+  const _LayersContent({
+    required this.placed,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 12, 10, 6),
+          child: Row(children: [
+            const Icon(Icons.layers_rounded, size: 13, color: AppColors.rose),
+            const SizedBox(width: 5),
+            Text('Katmanlar',
                 style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textDark)),
+          ]),
+        ),
+        if (placed.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+            child: Text('Henüz çiçek\neklenmedi',
+                style: GoogleFonts.poppins(
+                    fontSize: 10, color: AppColors.textLight)),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+              // Tersine — en üst katman (son index) listenin başında
+              itemCount: placed.length,
+              itemBuilder: (_, i) {
+                final p = placed[placed.length - 1 - i];
+                final sel = p.id == selectedId;
+                return GestureDetector(
+                  onTap: () => onSelect(p.id),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: sel
+                          ? AppColors.rose.withOpacity(0.10)
+                          : AppColors.cream,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: sel ? AppColors.rose : Colors.transparent,
+                        width: sel ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(children: [
+                      // Çiçek küçük resmi
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.asset(
+                            p.flower.assetPath,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => Container(
+                              decoration: BoxDecoration(
+                                color: p.flower.color.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Center(
+                                child: Text(p.flower.letter,
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: p.flower.color)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(p.flower.nameTr,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                                fontSize: 9,
+                                fontWeight: sel
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: sel
+                                    ? AppColors.rose
+                                    : AppColors.textDark)),
+                      ),
+                      if (sel)
+                        const Icon(Icons.check_circle_rounded,
+                            size: 12, color: AppColors.rose),
+                    ]),
+                  ),
+                );
+              },
+            ),
           ),
-          const Icon(Icons.unfold_more_rounded,
-              size: 14, color: AppColors.textLight),
-        ]),
-      ),
+      ],
     );
   }
 }
 
-class _StylePickerSheet extends StatelessWidget {
-  final BouquetStyle current;
-  const _StylePickerSheet({required this.current});
+// ── Şablonlar İçerik ────────────────────────────────────────
+/// 4 şablon kartı. PNG eklenince otomatik görünür,
+/// yoksa emoji + isim ile placeholder gösterir.
+class _TemplatesContent extends StatelessWidget {
+  final BouquetTemplate currentTemplate;
+  final ValueChanged<BouquetTemplate> onChanged;
+
+  const _TemplatesContent({
+    required this.currentTemplate,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 18),
-          Text('Buket Stili',
-              style: GoogleFonts.poppins(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textDark)),
-          const SizedBox(height: 14),
-          ...BouquetStyle.values.map((s) {
-            final sel = s == current;
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundColor:
-                    sel ? AppColors.rose : AppColors.rose.withOpacity(0.12),
-                child: Icon(s.icon,
-                    size: 18,
-                    color: sel ? AppColors.white : AppColors.rose),
-              ),
-              title: Text(s.label,
-                  style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
-                      color: sel ? AppColors.rose : AppColors.textDark)),
-              subtitle: Text(_descFor(s),
-                  style: GoogleFonts.poppins(
-                      fontSize: 11, color: AppColors.textLight)),
-              trailing: sel
-                  ? const Icon(Icons.check_circle, color: AppColors.rose)
-                  : null,
-              onTap: () => Navigator.pop(context, s),
-            );
-          }),
-        ]),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 12, 10, 6),
+          child: Row(children: [
+            const Icon(Icons.auto_awesome_mosaic_outlined,
+                size: 13, color: AppColors.rose),
+            const SizedBox(width: 5),
+            Text('Şablonlar',
+                style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark)),
+          ]),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+            itemCount: BouquetTemplate.values.length,
+            itemBuilder: (_, i) {
+              final t = BouquetTemplate.values[i];
+              final sel = currentTemplate == t;
+              return GestureDetector(
+                onTap: () => onChanged(t),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sel
+                        ? AppColors.rose.withOpacity(0.08)
+                        : AppColors.cream,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: sel ? AppColors.rose : AppColors.border,
+                      width: sel ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Şablon önizleme görseli
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(10)),
+                        child: SizedBox(
+                          height: 72,
+                          width: double.infinity,
+                          child: Image.asset(
+                            t.assetPath,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: AppColors.cream,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(t.emoji,
+                                      style:
+                                          const TextStyle(fontSize: 28)),
+                                  Text('PNG ekle',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 8,
+                                          color: AppColors.textLight)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // İsim + seçim göstergesi
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
+                        child: Row(children: [
+                          Expanded(
+                            child: Text(t.label,
+                                style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: sel
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: sel
+                                        ? AppColors.rose
+                                        : AppColors.textDark)),
+                          ),
+                          if (sel)
+                            const Icon(Icons.check_circle_rounded,
+                                size: 13, color: AppColors.rose),
+                        ]),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
-  }
-
-  String _descFor(BouquetStyle s) {
-    switch (s) {
-      case BouquetStyle.romantic:
-        return 'Klasik dome, sıkı kümelenmiş, simetrik';
-      case BouquetStyle.minimal:
-        return 'Az çiçek, geniş aralıklı, sade';
-      case BouquetStyle.scattered:
-        return 'Doğal dağılım, rastgele döndürülmüş';
-      case BouquetStyle.symmetric:
-        return 'Mükemmel simetri, grid yerleşim';
-    }
-  }
-}
-
-class _PalettePickerSheet extends StatelessWidget {
-  final FlowerPalette current;
-  const _PalettePickerSheet({required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 18),
-          Text('Renk Paleti',
-              style: GoogleFonts.poppins(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textDark)),
-          const SizedBox(height: 14),
-          ...FlowerPalette.values.map((p) {
-            final sel = p == current;
-            return ListTile(
-              leading: _PaletteSwatch(palette: p, selected: sel),
-              title: Text(p.label,
-                  style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
-                      color: sel ? AppColors.rose : AppColors.textDark)),
-              subtitle: Text(_descFor(p),
-                  style: GoogleFonts.poppins(
-                      fontSize: 11, color: AppColors.textLight)),
-              trailing: sel
-                  ? const Icon(Icons.check_circle, color: AppColors.rose)
-                  : null,
-              onTap: () => Navigator.pop(context, p),
-            );
-          }),
-        ]),
-      ),
-    );
-  }
-
-  String _descFor(FlowerPalette p) {
-    switch (p) {
-      case FlowerPalette.all:
-        return '29 çiçek — tüm renkler';
-      case FlowerPalette.warm:
-        return 'Kırmızı, turuncu, sarı, pembe';
-      case FlowerPalette.cool:
-        return 'Mavi, mor, beyaz';
-      case FlowerPalette.pastel:
-        return 'Yumuşak, açık tonlar';
-    }
-  }
-}
-
-class _PaletteSwatch extends StatelessWidget {
-  final FlowerPalette palette;
-  final bool selected;
-  const _PaletteSwatch({required this.palette, required this.selected});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _swatchColors(palette);
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-            colors: colors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight),
-        border: Border.all(
-            color: selected ? AppColors.rose : AppColors.border, width: 2),
-      ),
-    );
-  }
-
-  List<Color> _swatchColors(FlowerPalette p) {
-    switch (p) {
-      case FlowerPalette.all:
-        return [
-          const Color(0xFFE8213A),
-          const Color(0xFF9050C0),
-          const Color(0xFFF5C842),
-        ];
-      case FlowerPalette.warm:
-        return [
-          const Color(0xFFE8213A),
-          const Color(0xFFFF74B3),
-          const Color(0xFFF5C842),
-        ];
-      case FlowerPalette.cool:
-        return [
-          const Color(0xFF6080E0),
-          const Color(0xFF9050C0),
-          const Color(0xFFE8E8FF),
-        ];
-      case FlowerPalette.pastel:
-        return [
-          const Color(0xFFFFC2DC),
-          const Color(0xFFE8C8E0),
-          const Color(0xFFC8E2C5),
-        ];
-    }
   }
 }
 
@@ -678,9 +698,7 @@ class _DesignCanvas extends StatelessWidget {
       final w = constraints.maxWidth;
       final h = constraints.maxHeight;
       return DragTarget<Flower>(
-        onAccept: (f) {
-          onAcceptDrop(f, const Offset(0.5, 0.30));
-        },
+        onAccept: (f) => onAcceptDrop(f, const Offset(0.5, 0.30)),
         builder: (_, __, ___) => GestureDetector(
           onTap: onTapEmpty,
           behavior: HitTestBehavior.opaque,
@@ -690,7 +708,7 @@ class _DesignCanvas extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.hardEdge,
               children: [
-                // ── Buket şablon görseli (sap + yapraklar) ──
+                // ── Şablon arka planı ──────────────────────
                 Positioned.fill(
                   child: Image.asset(
                     template.assetPath,
@@ -703,12 +721,14 @@ class _DesignCanvas extends StatelessWidget {
                     ),
                   ),
                 ),
-                // ── Boş ipucu (şablon üstünde, sadece çiçek yokken) ──
+
+                // ── Boş ipucu ──────────────────────────────
                 if (placed.isEmpty) _CanvasEmptyHint(),
 
-                // ── Yerleştirilmiş çiçekler ──
+                // ── Yerleştirilmiş çiçekler ─────────────────
+                // Sıralama: placed[0] altta, placed.last üstte (Katman z-order)
                 ...placed.map((p) {
-                  final selected = p.id == selectedId;
+                  final sel = p.id == selectedId;
                   const flowerBase = 70.0;
                   final size = flowerBase * p.scale;
                   return Positioned(
@@ -720,8 +740,10 @@ class _DesignCanvas extends StatelessWidget {
                       onTap: () => onSelect(p.id),
                       onPanStart: (_) => onSelect(p.id),
                       onPanUpdate: (d) {
-                        final newDx = (p.position.dx * w + d.delta.dx) / w;
-                        final newDy = (p.position.dy * h + d.delta.dy) / h;
+                        final newDx =
+                            (p.position.dx * w + d.delta.dx) / w;
+                        final newDy =
+                            (p.position.dy * h + d.delta.dy) / h;
                         onMove(p.id, Offset(newDx, newDy));
                       },
                       child: Transform.rotate(
@@ -729,7 +751,7 @@ class _DesignCanvas extends StatelessWidget {
                         child: _FlowerImage(
                           flower: p.flower,
                           size: size,
-                          selected: selected,
+                          selected: sel,
                         ),
                       ),
                     ),
@@ -753,7 +775,8 @@ class _CanvasEmptyHint extends StatelessWidget {
       right: 0,
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: AppColors.white.withOpacity(0.82),
             borderRadius: BorderRadius.circular(20),
@@ -773,7 +796,6 @@ class _CanvasEmptyHint extends StatelessWidget {
     );
   }
 }
-
 
 class _FlowerImage extends StatelessWidget {
   final Flower flower;
@@ -851,10 +873,10 @@ class _SelectedControls extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       decoration: BoxDecoration(
         color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+        border:
+            Border(top: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: Column(children: [
-        // Header
         Row(children: [
           Container(
             width: 28,
@@ -876,7 +898,8 @@ class _SelectedControls extends StatelessWidget {
             color: AppColors.textMid,
             onPressed: onBackward,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints:
+                const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
           IconButton(
             tooltip: 'Öne getir',
@@ -884,7 +907,8 @@ class _SelectedControls extends StatelessWidget {
             color: AppColors.textMid,
             onPressed: onForward,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints:
+                const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
           IconButton(
             tooltip: 'Sil',
@@ -892,11 +916,10 @@ class _SelectedControls extends StatelessWidget {
             color: AppColors.rose,
             onPressed: onDelete,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints:
+                const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ]),
-
-        // Scale & rotate sliders
         Row(children: [
           const Icon(Icons.zoom_out_map_rounded,
               size: 16, color: AppColors.textLight),
@@ -941,20 +964,20 @@ class _SelectedControls extends StatelessWidget {
 }
 
 // ── Çiçek paleti (alt strip) ────────────────────────────────
+/// Tüm çiçekleri gösterir — palet filtresi kaldırıldı.
 class _FlowerPaletteStrip extends StatelessWidget {
-  final FlowerPalette palette;
   final ValueChanged<Flower> onTap;
-  const _FlowerPaletteStrip({required this.palette, required this.onTap});
+  const _FlowerPaletteStrip({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final filtered =
-        flowerAlphabet.values.where(palette.matches).toList();
+    final flowers = flowerAlphabet.values.toList();
     return Container(
-      height: 120,
+      height: 118,
       decoration: BoxDecoration(
         color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+        border:
+            Border(top: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: Column(children: [
         Padding(
@@ -962,7 +985,7 @@ class _FlowerPaletteStrip extends StatelessWidget {
           child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Çiçekler (${filtered.length})',
+                Text('Çiçekler (${flowers.length})',
                     style: GoogleFonts.poppins(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -975,12 +998,13 @@ class _FlowerPaletteStrip extends StatelessWidget {
         Expanded(
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-            itemCount: filtered.length,
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+            itemCount: flowers.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
-              final f = filtered[i];
-              return _PaletteFlowerThumb(flower: f, onTap: () => onTap(f));
+              final f = flowers[i];
+              return _PaletteFlowerThumb(
+                  flower: f, onTap: () => onTap(f));
             },
           ),
         ),
@@ -992,13 +1016,14 @@ class _FlowerPaletteStrip extends StatelessWidget {
 class _PaletteFlowerThumb extends StatelessWidget {
   final Flower flower;
   final VoidCallback onTap;
-  const _PaletteFlowerThumb({required this.flower, required this.onTap});
+  const _PaletteFlowerThumb(
+      {required this.flower, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final thumb = Container(
-      width: 64,
-      height: 64,
+      width: 62,
+      height: 62,
       decoration: BoxDecoration(
         color: flower.color.withOpacity(0.18),
         borderRadius: BorderRadius.circular(14),
@@ -1010,14 +1035,11 @@ class _PaletteFlowerThumb extends StatelessWidget {
           flower.assetPath,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Center(
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: flower.color.withOpacity(0.6),
-              ),
-            ),
+            child: Text(flower.letter,
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: flower.color)),
           ),
         ),
       ),
@@ -1031,11 +1053,10 @@ class _PaletteFlowerThumb extends StatelessWidget {
           color: Colors.transparent,
           child: Transform.scale(
             scale: 1.1,
-            child: SizedBox(width: 70, height: 70, child: thumb),
+            child: SizedBox(width: 68, height: 68, child: thumb),
           ),
         ),
-        childWhenDragging:
-            Opacity(opacity: 0.4, child: thumb),
+        childWhenDragging: Opacity(opacity: 0.4, child: thumb),
         child: thumb,
       ),
     );
