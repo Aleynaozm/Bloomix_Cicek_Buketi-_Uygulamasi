@@ -90,10 +90,37 @@ extension RibbonStyleExt on RibbonStyle {
   }
 }
 
-// ── Pricing (lego brick bazlı) ───────────────────────────
-/// Birim brick fiyatı (TL). Buket fiyatı = legoCount × pricePerLego.
-/// Tek noktadan değiştirilebilir; kampanya/indirim uygulamak için ideal yer.
-const double pricePerLego = 12.0;
+// ── Bouquet Template ─────────────────────────────────────
+enum BouquetTemplate { classic, modern, minimal, luxury }
+
+extension BouquetTemplateExt on BouquetTemplate {
+  String get label {
+    switch (this) {
+      case BouquetTemplate.classic: return 'Klasik';
+      case BouquetTemplate.modern:  return 'Modern';
+      case BouquetTemplate.minimal: return 'Minimal';
+      case BouquetTemplate.luxury:  return 'Lüks';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case BouquetTemplate.classic: return '🌿';
+      case BouquetTemplate.modern:  return '✨';
+      case BouquetTemplate.minimal: return '🤍';
+      case BouquetTemplate.luxury:  return '👑';
+    }
+  }
+
+  String get assetPath {
+    switch (this) {
+      case BouquetTemplate.classic: return 'assets/images/bouquet_template.png';
+      case BouquetTemplate.modern:  return 'assets/images/bouquet_template_modern.png';
+      case BouquetTemplate.minimal: return 'assets/images/bouquet_template_minimal.png';
+      case BouquetTemplate.luxury:  return 'assets/images/bouquet_template_luxury.png';
+    }
+  }
+}
 
 // ── Size ─────────────────────────────────────────────────
 enum BouquetSize { small, medium, large }
@@ -110,7 +137,7 @@ extension BouquetSizeExt on BouquetSize {
     }
   }
 
-  /// Buketteki çiçek sayısı (görsel düzen için).
+  /// Buketteki referans çiçek sayısı (görsel düzen için).
   int get count {
     switch (this) {
       case BouquetSize.small:
@@ -121,21 +148,6 @@ extension BouquetSizeExt on BouquetSize {
         return 15;
     }
   }
-
-  /// Buketin toplam Lego brick adedi (gerçek Lego Botanical setlerine yakın).
-  int get legoCount {
-    switch (this) {
-      case BouquetSize.small:
-        return 120;
-      case BouquetSize.medium:
-        return 240;
-      case BouquetSize.large:
-        return 400;
-    }
-  }
-
-  /// Brick × birim fiyat → buket fiyatı.
-  double get price => legoCount * pricePerLego;
 }
 
 // ── Bouquet ───────────────────────────────────────────────
@@ -147,6 +159,7 @@ class Bouquet {
   final BouquetSize size;
   final String? giftMessage;
   final bool isFavorite;
+  final BouquetTemplate template;
 
   const Bouquet({
     required this.id,
@@ -156,13 +169,17 @@ class Bouquet {
     this.size = BouquetSize.medium,
     this.giftMessage,
     this.isFavorite = false,
+    this.template = BouquetTemplate.classic,
   });
 
-  /// Buketteki toplam lego brick adedi.
-  int get legoCount => size.legoCount;
+  /// Çiçek sayısına göre LEGO brick adedi (~65 brick/çiçek).
+  int get legoCount => flowers.length * 65;
 
-  /// Buketin TL fiyatı (legoCount × pricePerLego).
-  double get price => size.price;
+  /// LEGO buket fiyatı: ₺300 baz + çiçek başı ₺360.
+  double get price => 300 + (flowers.length * 360);
+
+  /// Normal buket fiyatı: ₺180 baz + çiçek başı ₺140.
+  double get normalPrice => 180 + (flowers.length * 140);
 
   Bouquet copyWith({
     String? name,
@@ -171,6 +188,7 @@ class Bouquet {
     BouquetSize? size,
     String? giftMessage,
     bool? isFavorite,
+    BouquetTemplate? template,
   }) =>
       Bouquet(
         id: id,
@@ -180,6 +198,7 @@ class Bouquet {
         size: size ?? this.size,
         giftMessage: giftMessage ?? this.giftMessage,
         isFavorite: isFavorite ?? this.isFavorite,
+        template: template ?? this.template,
       );
 }
 
@@ -189,22 +208,28 @@ class CartItem {
   final Bouquet bouquet;
   final int qty;
   final DateTime addedAt;
+  /// true → LEGO buket, false → gerçek çiçek buketi.
+  final bool isLego;
 
   const CartItem({
     required this.id,
     required this.bouquet,
     required this.qty,
     required this.addedAt,
+    this.isLego = false,
   });
 
-  double get lineTotal => bouquet.price * qty;
-  int get lineLegoCount => bouquet.legoCount * qty;
+  double get unitPrice =>
+      isLego ? bouquet.price : bouquet.normalPrice;
+  double get lineTotal => unitPrice * qty;
+  int get lineLegoCount => isLego ? bouquet.legoCount * qty : 0;
 
   CartItem copyWith({int? qty}) => CartItem(
         id: id,
         bouquet: bouquet,
         qty: qty ?? this.qty,
         addedAt: addedAt,
+        isLego: isLego,
       );
 }
 
@@ -251,6 +276,8 @@ class Order {
   final OrderStatus status;
   final DateTime createdAt;
   final double total;
+  /// true → LEGO brick buket, false → gerçek/normal buket.
+  final bool isLego;
 
   Order({
     required this.id,
@@ -263,6 +290,7 @@ class Order {
     this.status = OrderStatus.confirmed,
     required this.createdAt,
     required this.total,
+    this.isLego = false,
   });
 
   /// İlk buket — eski tek-buket ekranlarıyla uyum için kısa yol.

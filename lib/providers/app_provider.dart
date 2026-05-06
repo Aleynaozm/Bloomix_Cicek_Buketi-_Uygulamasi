@@ -152,11 +152,10 @@ class AppProvider extends ChangeNotifier {
   // ── Bouquet Builder ───────────────────────────────────────────────────────
   String _inputName = '';
   List<Flower> _flowers = [];
-  /// Kullanıcı tasarladıysa bunlar dolu. Alfabe akışında otomatik dome pozisyonu üretilir.
-  /// BouquetPreview hep buradan render eder.
   List<PlacedFlowerData> _placedFlowers = [];
   RibbonStyle _ribbon = RibbonStyle.red;
   BouquetSize _size = BouquetSize.medium;
+  BouquetTemplate _template = BouquetTemplate.classic;
   Bouquet? _currentBouquet;
   /// True = serbest tasarla akışından geldi, False = alfabe akışı.
   bool _isFreeDesign = false;
@@ -167,6 +166,7 @@ class AppProvider extends ChangeNotifier {
       List.unmodifiable(_placedFlowers);
   RibbonStyle get ribbon => _ribbon;
   BouquetSize get size => _size;
+  BouquetTemplate get template => _template;
   Bouquet? get currentBouquet => _currentBouquet;
   bool get hasBouquet => _flowers.isNotEmpty;
   bool get isFreeDesign => _isFreeDesign;
@@ -239,6 +239,11 @@ class AppProvider extends ChangeNotifier {
     _rebuildBouquet();
   }
 
+  void setTemplate(BouquetTemplate t) {
+    _template = t;
+    _rebuildBouquet();
+  }
+
   /// İsimsel buket için pozisyon üretici — sıkı dome.
   List<PlacedFlowerData> _generateDomePositions(List<Flower> flowers) {
     final n = flowers.length;
@@ -269,6 +274,7 @@ class AppProvider extends ChangeNotifier {
         flowers: _flowers,
         ribbon: _ribbon,
         size: _size,
+        template: _template,
       );
     }
     notifyListeners();
@@ -466,9 +472,10 @@ class AppProvider extends ChangeNotifier {
   /// Sepetteki toplam lego brick adedi.
   int get cartLegoCount => _cart.fold(0, (s, it) => s + it.lineLegoCount);
 
-  /// Aynı bouquet ID zaten varsa adet artar; yoksa yeni satır.
-  void addToCart(Bouquet b, {int qty = 1}) {
-    final idx = _cart.indexWhere((it) => it.bouquet.id == b.id);
+  /// Aynı bouquet ID + aynı tür (isLego) varsa adet artar; yoksa yeni satır.
+  void addToCart(Bouquet b, {int qty = 1, bool isLego = false}) {
+    final idx = _cart.indexWhere(
+        (it) => it.bouquet.id == b.id && it.isLego == isLego);
     if (idx >= 0) {
       _cart[idx] = _cart[idx].copyWith(qty: _cart[idx].qty + qty);
     } else {
@@ -477,6 +484,7 @@ class AppProvider extends ChangeNotifier {
         bouquet: b,
         qty: qty,
         addedAt: DateTime.now(),
+        isLego: isLego,
       ));
     }
     notifyListeners();

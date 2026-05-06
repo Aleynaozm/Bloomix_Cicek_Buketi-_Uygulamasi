@@ -25,6 +25,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   List<PlacedFlowerData> _editablePlaced = [];
   bool _initialized = false;
   String? _selectedId;
+  bool _layerPanelOpen = false;
 
   void _share(Bouquet b) {
     ShareSheet.show(context, previewKey: _previewKey, bouquet: b);
@@ -45,6 +46,65 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                       color: Colors.white, fontWeight: FontWeight.w600))),
         ]),
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showCartToast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.rose,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Row(children: [
+          const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(msg,
+                  style: GoogleFonts.poppins(
+                      color: Colors.white, fontWeight: FontWeight.w600))),
+        ]),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showAddToCartSheet(Bouquet bouquet, AppProvider prov) {
+    if (bouquet.flowers.length < 5) {
+      final remaining = 5 - bouquet.flowers.length;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFFE08020),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          content: Row(children: [
+            const Icon(Icons.info_outline_rounded, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'En az 5 çiçek gerekli. $remaining çiçek daha ekle.',
+                style: GoogleFonts.poppins(
+                    color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ]),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TypeSelectionSheet(
+        bouquet: bouquet,
+        onSelect: (isLego) {
+          Navigator.pop(context);
+          prov.addToCart(bouquet, isLego: isLego);
+          _showCartToast('${bouquet.name} sepete eklendi');
+        },
       ),
     );
   }
@@ -189,19 +249,44 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                         child: Text('Çiçek yok',
                             style: TextStyle(color: AppColors.textLight)),
                       )
-                    : RepaintBoundary(
-                        key: _previewKey,
-                        child: Container(
-                          color: AppColors.cream,
-                          child: _DraggableBouquetCanvas(
-                            placed: _editablePlaced,
-                            selectedId: _selectedId,
-                            onSelect: _select,
-                            onMove: _moveFlower,
-                            onTapEmpty: () => _select(null),
+                    : Stack(children: [
+                        RepaintBoundary(
+                          key: _previewKey,
+                          child: Container(
+                            color: AppColors.cream,
+                            child: _DraggableBouquetCanvas(
+                              placed: _editablePlaced,
+                              selectedId: _selectedId,
+                              onSelect: _select,
+                              onMove: _moveFlower,
+                              onTapEmpty: () {
+                                _select(null);
+                                if (_layerPanelOpen) {
+                                  setState(() => _layerPanelOpen = false);
+                                }
+                              },
+                              template: prov.template,
+                            ),
                           ),
                         ),
-                      ),
+                        // ── Katman paneli ──────────────────────────
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: _LayerPanel(
+                            placed: _editablePlaced,
+                            selectedId: _selectedId,
+                            isOpen: _layerPanelOpen,
+                            onToggle: () => setState(
+                                () => _layerPanelOpen = !_layerPanelOpen),
+                            onSelect: (id) => setState(() {
+                              _selectedId = id;
+                              _layerPanelOpen = false;
+                            }),
+                          ),
+                        ),
+                      ]),
               ),
             ),
 
@@ -298,7 +383,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
               const SizedBox(height: 6),
             ],
 
-            // ── Fiyat + brick özet barı ────────────────────────────
+            // ── Fiyat karşılaştırma barı ────────────────────────────
             if (bouquet != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
@@ -306,53 +391,49 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.roseLight.withOpacity(0.4),
-                        AppColors.roseLight.withOpacity(0.2),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: AppColors.rose.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                                Icons.extension_rounded,
-                                size: 16,
-                                color: AppColors.rose),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('${bouquet.legoCount} brick',
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.textDark)),
-                                Text(prov.size.label,
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        color: AppColors.textLight)),
-                              ]),
-                        ]),
-                        Text('₺${bouquet.price.toStringAsFixed(0)}',
-                            style: GoogleFonts.poppins(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.rose)),
-                      ]),
+                  child: Row(children: [
+                    // Normal buket fiyatı
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('🌸 Normal Buket',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: AppColors.textLight)),
+                            Text('₺${bouquet.normalPrice.toStringAsFixed(0)}',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.rose)),
+                          ]),
+                    ),
+                    Container(
+                        width: 1, height: 36, color: AppColors.border),
+                    const SizedBox(width: 12),
+                    // LEGO buket fiyatı
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('🧱 LEGO · ${bouquet.legoCount} brick',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: AppColors.textLight)),
+                            Text('₺${bouquet.price.toStringAsFixed(0)}',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF3070D0))),
+                          ]),
+                    ),
+                  ]),
                 ),
               ),
 
@@ -393,10 +474,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                     icon: Icons.add_shopping_cart_rounded,
                     onPressed: bouquet == null
                         ? null
-                        : () {
-                            prov.addToCart(bouquet);
-                            _toast('${bouquet.name} sepete eklendi');
-                          },
+                        : () => _showAddToCartSheet(bouquet, prov),
                   ),
                 ),
               ]),
@@ -408,12 +486,343 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   }
 }
 
+// ── Katman Paneli ────────────────────────────────────────────────────────────
+class _LayerPanel extends StatelessWidget {
+  final List<PlacedFlowerData> placed;
+  final String? selectedId;
+  final bool isOpen;
+  final VoidCallback onToggle;
+  final ValueChanged<String> onSelect;
+
+  const _LayerPanel({
+    required this.placed,
+    required this.selectedId,
+    required this.isOpen,
+    required this.onToggle,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // ── Liste paneli ──────────────────────────
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          width: isOpen ? 62 : 0,
+          child: ClipRect(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: isOpen ? 1.0 : 0.0,
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(16)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.10),
+                      blurRadius: 12,
+                      offset: const Offset(4, 0),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10, bottom: 6),
+                      child: Text(
+                        'Katmanlar',
+                        style: GoogleFonts.poppins(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textLight,
+                            letterSpacing: 0.5),
+                      ),
+                    ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          children: placed.reversed.map((p) {
+                            final selected = p.id == selectedId;
+                            return GestureDetector(
+                              onTap: () => onSelect(p.id),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 3),
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? AppColors.rose.withOpacity(0.12)
+                                      : AppColors.cream,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: selected
+                                        ? AppColors.rose
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Image.asset(
+                                        p.flower.assetPath,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) =>
+                                            Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: p.flower.color
+                                                .withOpacity(0.6),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (selected)
+                                      Positioned(
+                                        right: 2,
+                                        top: 2,
+                                        child: Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.rose,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.check_rounded,
+                                            size: 7,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // ── Toggle butonu ─────────────────────────
+        GestureDetector(
+          onTap: onToggle,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            width: 24,
+            height: 72,
+            decoration: BoxDecoration(
+              color: isOpen ? AppColors.rose : Colors.white.withOpacity(0.92),
+              borderRadius: const BorderRadius.horizontal(
+                  right: Radius.circular(12)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 8,
+                  offset: const Offset(3, 0),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isOpen
+                      ? Icons.chevron_left_rounded
+                      : Icons.layers_rounded,
+                  size: 16,
+                  color: isOpen ? Colors.white : AppColors.rose,
+                ),
+                if (!isOpen) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${placed.length}',
+                    style: GoogleFonts.poppins(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.rose),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Tür Seçim Sayfası ────────────────────────────────────────────────────────
+class _TypeSelectionSheet extends StatelessWidget {
+  final Bouquet bouquet;
+  final void Function(bool isLego) onSelect;
+
+  const _TypeSelectionSheet({required this.bouquet, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, MediaQuery.of(context).padding.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Buket Tipi Seç',
+              style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDark)),
+          const SizedBox(height: 6),
+          Text('Hangi versiyonu sepete eklemek istiyorsun?',
+              style: GoogleFonts.poppins(
+                  fontSize: 12, color: AppColors.textLight)),
+          const SizedBox(height: 20),
+          _TypeCard(
+            emoji: '🌸',
+            title: 'Normal Buket',
+            subtitle: 'Gerçek çiçeklerle hazırlanır, kapınıza teslim',
+            price: '₺${bouquet.normalPrice.toStringAsFixed(0)}',
+            accentColor: AppColors.rose,
+            onTap: () => onSelect(false),
+          ),
+          const SizedBox(height: 12),
+          _TypeCard(
+            emoji: '🧱',
+            title: 'LEGO Buket',
+            subtitle: '${bouquet.legoCount} brick · Kalıcı hatıra',
+            price: '₺${bouquet.price.toStringAsFixed(0)}',
+            accentColor: const Color(0xFF3070D0),
+            onTap: () => onSelect(true),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeCard extends StatelessWidget {
+  final String emoji;
+  final String title;
+  final String subtitle;
+  final String price;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  const _TypeCard({
+    required this.emoji,
+    required this.title,
+    required this.subtitle,
+    required this.price,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+        ),
+        child: Row(children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(
+                child: Text(emoji, style: const TextStyle(fontSize: 26))),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title,
+                      style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark)),
+                  Text(subtitle,
+                      style: GoogleFonts.poppins(
+                          fontSize: 11, color: AppColors.textLight)),
+                ]),
+          ),
+          Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(price,
+                    style: GoogleFonts.poppins(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: accentColor)),
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text('Ekle',
+                      style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
+                ),
+              ]),
+        ]),
+      ),
+    );
+  }
+}
+
 class _DraggableBouquetCanvas extends StatelessWidget {
   final List<PlacedFlowerData> placed;
   final String? selectedId;
   final ValueChanged<String> onSelect;
   final void Function(String id, Offset newNormalized) onMove;
   final VoidCallback onTapEmpty;
+  final BouquetTemplate template;
 
   const _DraggableBouquetCanvas({
     required this.placed,
@@ -421,6 +830,7 @@ class _DraggableBouquetCanvas extends StatelessWidget {
     required this.onSelect,
     required this.onMove,
     required this.onTapEmpty,
+    required this.template,
   });
 
   @override
@@ -440,9 +850,14 @@ class _DraggableBouquetCanvas extends StatelessWidget {
               // Şablon (sap + yapraklar)
               Positioned.fill(
                 child: Image.asset(
-                  'assets/images/bouquet_template.png',
+                  template.assetPath,
                   fit: BoxFit.contain,
                   alignment: Alignment.center,
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    'assets/images/bouquet_template.png',
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                  ),
                 ),
               ),
               ...placed.map((p) {

@@ -116,6 +116,7 @@ class BouquetPreview extends StatefulWidget {
   final List<Flower> flowers;
   final List<PlacedFlowerData>? placed;
   final RibbonStyle ribbon;
+  final BouquetTemplate template;
   final double height;
 
   const BouquetPreview({
@@ -123,6 +124,7 @@ class BouquetPreview extends StatefulWidget {
     required this.flowers,
     this.placed,
     required this.ribbon,
+    this.template = BouquetTemplate.classic,
     this.height = 320,
   });
 
@@ -193,9 +195,14 @@ class _BouquetPreviewState extends State<BouquetPreview> with TickerProviderStat
               Positioned.fill(
                 child: IgnorePointer(
                   child: Image.asset(
-                    'assets/images/bouquet_template.png',
+                    widget.template.assetPath,
                     fit: BoxFit.contain,
                     alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/images/bouquet_template.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                    ),
                   ),
                 ),
               ),

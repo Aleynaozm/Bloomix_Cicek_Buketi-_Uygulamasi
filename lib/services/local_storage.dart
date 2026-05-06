@@ -135,6 +135,7 @@ class LocalStorage {
               'bouquet': _bouquetToJson(it.bouquet),
               'qty': it.qty,
               'addedAt': it.addedAt.toIso8601String(),
+              'isLego': it.isLego,
             })
         .toList();
     await _prefs!.setString(_kCart(userId), jsonEncode(list));
@@ -155,6 +156,7 @@ class LocalStorage {
               bouquet: b,
               qty: j['qty'] as int,
               addedAt: DateTime.parse(j['addedAt'] as String),
+              isLego: j['isLego'] as bool? ?? false,
             );
           })
           .whereType<CartItem>()

@@ -141,12 +141,12 @@ class _BouquetCard extends StatelessWidget {
                               color: AppColors.textDark,
                               height: 1.2)),
                       const SizedBox(height: 4),
-                      Text('${bouquet.size.legoCount} brick',
+                      Text('${bouquet.legoCount} brick',
                           style: GoogleFonts.poppins(
                               fontSize: 11,
                               color: AppColors.textLight)),
                     ]),
-                    Text('₺${bouquet.size.price.toStringAsFixed(0)}',
+                    Text('₺${bouquet.price.toStringAsFixed(0)}',
                         style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,

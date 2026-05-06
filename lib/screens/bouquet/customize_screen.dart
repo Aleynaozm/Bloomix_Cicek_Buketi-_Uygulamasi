@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../models/models.dart';
@@ -25,6 +26,7 @@ class CustomizeScreen extends StatelessWidget {
                 flowers: prov.flowers,
                 placed: prov.placedFlowers,
                 ribbon: prov.ribbon,
+                template: prov.template,
                 height: 200,
               ),
             ),
@@ -59,6 +61,69 @@ class CustomizeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 28),
 
+            // Template
+            Text('Şablon', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text('Yeni şablonlar yakında eklenecek',
+                style: GoogleFonts.poppins(
+                    fontSize: 11, color: AppColors.textLight)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 88,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: BouquetTemplate.values.map((t) {
+                  final sel = prov.template == t;
+                  final available = t == BouquetTemplate.classic;
+                  return GestureDetector(
+                    onTap: available ? () => prov.setTemplate(t) : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 76,
+                      margin: const EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? AppColors.rose.withOpacity(0.08)
+                            : AppColors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: sel ? AppColors.rose : AppColors.border,
+                          width: sel ? 2 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(t.emoji,
+                              style: TextStyle(
+                                  fontSize: 28,
+                                  color: available ? null : Colors.grey)),
+                          const SizedBox(height: 4),
+                          Text(t.label,
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: sel
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: sel
+                                      ? AppColors.rose
+                                      : (available
+                                          ? AppColors.textDark
+                                          : AppColors.textLight))),
+                          if (!available)
+                            Text('yakında',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 9,
+                                    color: AppColors.textLight)),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 28),
+
             // Size
             Text('Buket Boyutu', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
@@ -84,11 +149,8 @@ class CustomizeScreen extends StatelessWidget {
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(s.label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
                         color: sel ? AppColors.rose : AppColors.textDark)),
-                      Text('${s.legoCount} brick', style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+                      Text('${s.count} çiçek referans', style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
                     ])),
-                    Text('₺${s.price.toStringAsFixed(0)}', style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w700,
-                      color: sel ? AppColors.rose : AppColors.textMid)),
                   ]),
                 ),
               );

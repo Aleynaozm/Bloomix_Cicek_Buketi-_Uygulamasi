@@ -330,14 +330,17 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
 
         // ── Canvas ────────────────────────────────────────────
         Expanded(
-          child: _DesignCanvas(
-            placed: _placed,
-            selectedId: _selectedId,
-            onSelect: _select,
-            onMove: _move,
-            onTapEmpty: () => _select(null),
-            onAcceptDrop: (f, normalized) =>
-                _addAtPosition(f, normalized),
+          child: Consumer<AppProvider>(
+            builder: (_, prov, __) => _DesignCanvas(
+              placed: _placed,
+              selectedId: _selectedId,
+              onSelect: _select,
+              onMove: _move,
+              onTapEmpty: () => _select(null),
+              onAcceptDrop: (f, normalized) =>
+                  _addAtPosition(f, normalized),
+              template: prov.template,
+            ),
           ),
         ),
 
@@ -657,6 +660,7 @@ class _DesignCanvas extends StatelessWidget {
   final void Function(String, Offset) onMove;
   final VoidCallback onTapEmpty;
   final void Function(Flower, Offset) onAcceptDrop;
+  final BouquetTemplate template;
 
   const _DesignCanvas({
     required this.placed,
@@ -665,6 +669,7 @@ class _DesignCanvas extends StatelessWidget {
     required this.onMove,
     required this.onTapEmpty,
     required this.onAcceptDrop,
+    required this.template,
   });
 
   @override
@@ -688,9 +693,14 @@ class _DesignCanvas extends StatelessWidget {
                 // ── Buket şablon görseli (sap + yapraklar) ──
                 Positioned.fill(
                   child: Image.asset(
-                    'assets/images/bouquet_template.png',
+                    template.assetPath,
                     fit: BoxFit.contain,
                     alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/images/bouquet_template.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                    ),
                   ),
                 ),
                 // ── Boş ipucu (şablon üstünde, sadece çiçek yokken) ──

@@ -61,18 +61,20 @@ class CartScreen extends StatelessWidget {
                   top: BorderSide(color: AppColors.border, width: 0.5)),
             ),
             child: Column(children: [
-              // Brick & toplam
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Toplam Brick',
-                    style: GoogleFonts.poppins(
-                        fontSize: 13, color: AppColors.textLight)),
-                Text('$brickTotal adet',
-                    style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: AppColors.textMid,
-                        fontWeight: FontWeight.w600)),
-              ]),
-              const SizedBox(height: 6),
+              // Brick toplamı sadece LEGO ürünler varsa göster
+              if (brickTotal > 0) ...[
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text('Toplam Brick',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13, color: AppColors.textLight)),
+                  Text('$brickTotal adet',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: const Color(0xFF3070D0),
+                          fontWeight: FontWeight.w600)),
+                ]),
+                const SizedBox(height: 6),
+              ],
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Toplam Tutar',
                     style: GoogleFonts.poppins(
@@ -178,15 +180,39 @@ class _CartTile extends StatelessWidget {
                 ),
               ),
             ]),
-            const SizedBox(height: 2),
-            Text('${b.size.label} • ${b.ribbon.label} kurdele',
-                style: GoogleFonts.poppins(
-                    fontSize: 12, color: AppColors.textLight)),
-            Text('${b.legoCount} brick',
-                style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppColors.rose,
-                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (item.isLego
+                          ? const Color(0xFF3070D0)
+                          : AppColors.rose)
+                      .withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(item.isLego ? '🧱 LEGO' : '🌸 Normal',
+                    style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: item.isLego
+                            ? const Color(0xFF3070D0)
+                            : AppColors.rose)),
+              ),
+              const SizedBox(width: 8),
+              Text('${b.size.label} • ${b.ribbon.label} kurdele',
+                  style: GoogleFonts.poppins(
+                      fontSize: 11, color: AppColors.textLight)),
+            ]),
+            if (item.isLego) ...[
+              const SizedBox(height: 2),
+              Text('${b.legoCount} brick',
+                  style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: const Color(0xFF3070D0),
+                      fontWeight: FontWeight.w600)),
+            ],
             const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               // Qty stepper

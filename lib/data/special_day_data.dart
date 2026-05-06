@@ -125,6 +125,10 @@ class SpecialBouquet {
     this.ribbon = RibbonStyle.red,
     this.size = BouquetSize.medium,
   });
+
+  int get legoCount => flowers.length * 65;
+  double get price => 300 + (flowers.length * 360);
+  double get normalPrice => 180 + (flowers.length * 140);
 }
 
 // ── Çiçek seçim yardımcısı ─────────────────────────────────

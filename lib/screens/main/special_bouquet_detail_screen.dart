@@ -144,7 +144,7 @@ class SpecialBouquetDetailScreen extends StatelessWidget {
                   Row(children: [
                     _StatPill(
                       icon: Icons.extension_rounded,
-                      label: '${bouquet.size.legoCount} brick',
+                      label: '${bouquet.legoCount} brick',
                     ),
                     const SizedBox(width: 8),
                     _StatPill(
@@ -243,7 +243,7 @@ class SpecialBouquetDetailScreen extends StatelessWidget {
                             style: GoogleFonts.poppins(
                                 fontSize: 11,
                                 color: AppColors.textLight)),
-                        Text('₺${bouquet.size.price.toStringAsFixed(0)}',
+                        Text('₺${bouquet.price.toStringAsFixed(0)}',
                             style: GoogleFonts.poppins(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
