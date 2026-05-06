@@ -211,25 +211,65 @@ class CartItem {
   /// true → LEGO buket, false → gerçek çiçek buketi.
   final bool isLego;
 
+  // ── Upsell alanları ──────────────────────────────────────
+  /// Hediye notu metni (boşsa ücret sıfır).
+  final String? giftNote;
+  /// Kullanıcının seçtiği teslimat tarihi.
+  final DateTime? deliveryDate;
+  /// true → NFT olarak mint edildi.
+  final bool isNft;
+  /// Hediye notu ek ücreti (₺).
+  final double giftNoteFee;
+  /// NFT minting ücreti (₺).
+  final double nftMintFee;
+  /// Mock blockchain hash (isNft=true olduğunda set edilir).
+  final String? nftHash;
+
   const CartItem({
     required this.id,
     required this.bouquet,
     required this.qty,
     required this.addedAt,
     this.isLego = false,
+    this.giftNote,
+    this.deliveryDate,
+    this.isNft = false,
+    this.giftNoteFee = 0.0,
+    this.nftMintFee = 0.0,
+    this.nftHash,
   });
 
+  /// Toplam ek ücret (not + NFT).
+  double get extraFees => giftNoteFee + nftMintFee;
+
+  /// Birim fiyat = buket fiyatı + ek ücretler.
   double get unitPrice =>
-      isLego ? bouquet.price : bouquet.normalPrice;
+      (isLego ? bouquet.price : bouquet.normalPrice) + extraFees;
+
   double get lineTotal => unitPrice * qty;
   int get lineLegoCount => isLego ? bouquet.legoCount * qty : 0;
 
-  CartItem copyWith({int? qty}) => CartItem(
+  CartItem copyWith({
+    int? qty,
+    String? giftNote,
+    DateTime? deliveryDate,
+    bool? isNft,
+    double? giftNoteFee,
+    double? nftMintFee,
+    String? nftHash,
+  }) =>
+      CartItem(
         id: id,
         bouquet: bouquet,
         qty: qty ?? this.qty,
         addedAt: addedAt,
         isLego: isLego,
+        giftNote: giftNote ?? this.giftNote,
+        deliveryDate: deliveryDate ?? this.deliveryDate,
+        isNft: isNft ?? this.isNft,
+        giftNoteFee: giftNoteFee ?? this.giftNoteFee,
+        nftMintFee: nftMintFee ?? this.nftMintFee,
+        nftHash: nftHash ?? this.nftHash,
       );
 }
 

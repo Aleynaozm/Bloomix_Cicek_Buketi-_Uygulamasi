@@ -472,21 +472,49 @@ class AppProvider extends ChangeNotifier {
   /// Sepetteki toplam lego brick adedi.
   int get cartLegoCount => _cart.fold(0, (s, it) => s + it.lineLegoCount);
 
-  /// Aynı bouquet ID + aynı tür (isLego) varsa adet artar; yoksa yeni satır.
-  void addToCart(Bouquet b, {int qty = 1, bool isLego = false}) {
-    final idx = _cart.indexWhere(
-        (it) => it.bouquet.id == b.id && it.isLego == isLego);
-    if (idx >= 0) {
-      _cart[idx] = _cart[idx].copyWith(qty: _cart[idx].qty + qty);
-    } else {
-      _cart.add(CartItem(
-        id: 'c_${DateTime.now().millisecondsSinceEpoch}',
-        bouquet: b,
-        qty: qty,
-        addedAt: DateTime.now(),
-        isLego: isLego,
-      ));
+  /// Sepete ekle.
+  ///
+  /// Ek ücretli opsiyonlar varsa (giftNote, isNft) her zaman yeni satır açılır.
+  /// Sade ekleme (opsiyon yok, aynı bouquet+isLego) ise adet artar.
+  void addToCart(
+    Bouquet b, {
+    int qty = 1,
+    bool isLego = false,
+    String? giftNote,
+    DateTime? deliveryDate,
+    bool isNft = false,
+    double giftNoteFee = 0.0,
+    double nftMintFee = 0.0,
+    String? nftHash,
+  }) {
+    final hasExtras =
+        (giftNote != null && giftNote.isNotEmpty) || isNft;
+
+    if (!hasExtras) {
+      // Sade mod: aynı satırın adedini artır
+      final idx = _cart.indexWhere(
+          (it) => it.bouquet.id == b.id && it.isLego == isLego && !it.isNft && (it.giftNote == null || it.giftNote!.isEmpty));
+      if (idx >= 0) {
+        _cart[idx] = _cart[idx].copyWith(qty: _cart[idx].qty + qty);
+        notifyListeners();
+        _persist();
+        return;
+      }
     }
+
+    _cart.add(CartItem(
+      id: 'c_${DateTime.now().millisecondsSinceEpoch}',
+      bouquet: b,
+      qty: qty,
+      addedAt: DateTime.now(),
+      isLego: isLego,
+      giftNote: giftNote,
+      deliveryDate: deliveryDate,
+      isNft: isNft,
+      giftNoteFee: giftNoteFee,
+      nftMintFee: nftMintFee,
+      nftHash: nftHash,
+    ));
     notifyListeners();
     _persist();
   }
