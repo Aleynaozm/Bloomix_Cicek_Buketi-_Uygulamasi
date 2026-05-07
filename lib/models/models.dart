@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 // ── PlacedFlowerData ─────────────────────────────────────
@@ -162,6 +163,8 @@ class Bouquet {
   final BouquetTemplate template;
   /// Canvas'taki çiçek konumları — kaydedilip geri yüklenebilir.
   final List<PlacedFlowerData> placedFlowers;
+  /// Tasarım ekranından alınan PNG önizleme görüntüsü (bellekte, serialize edilmez).
+  final Uint8List? previewImageBytes;
 
   const Bouquet({
     required this.id,
@@ -173,6 +176,7 @@ class Bouquet {
     this.isFavorite = false,
     this.template = BouquetTemplate.classic,
     this.placedFlowers = const [],
+    this.previewImageBytes,
   });
 
   /// Çiçek sayısına göre LEGO brick adedi (~65 brick/çiçek).
@@ -193,6 +197,7 @@ class Bouquet {
     bool? isFavorite,
     BouquetTemplate? template,
     List<PlacedFlowerData>? placedFlowers,
+    Uint8List? previewImageBytes,
   }) =>
       Bouquet(
         id: id,
@@ -204,6 +209,7 @@ class Bouquet {
         isFavorite: isFavorite ?? this.isFavorite,
         template: template ?? this.template,
         placedFlowers: placedFlowers ?? this.placedFlowers,
+        previewImageBytes: previewImageBytes ?? this.previewImageBytes,
       );
 }
 

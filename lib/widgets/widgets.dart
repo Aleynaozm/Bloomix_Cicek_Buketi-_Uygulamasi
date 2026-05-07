@@ -212,7 +212,7 @@ class _BouquetPreviewState extends State<BouquetPreview> with TickerProviderStat
                 final p = entry.value;
                 final size = flowerBase * p.scale;
                 final dx = p.position.dx * w - size / 2;
-                final dy = p.position.dy * h - size * 0.55;
+                final dy = p.position.dy * h - size / 2;
                 return Positioned(
                   left: dx,
                   top: dy,

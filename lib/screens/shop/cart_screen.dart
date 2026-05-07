@@ -169,20 +169,24 @@ class _CartTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             child: Container(
               color: b.ribbon.color.withOpacity(0.10),
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: SizedBox(
-                  width: 180,
-                  height: 180,
-                  child: BouquetPreview(
-                    flowers: b.flowers,
-                    placed: b.placedFlowers.isNotEmpty ? b.placedFlowers : null,
-                    ribbon: b.ribbon,
-                    template: b.template,
-                    height: 180,
-                  ),
-                ),
-              ),
+              child: b.previewImageBytes != null
+                  ? Image.memory(b.previewImageBytes!, fit: BoxFit.contain)
+                  : FittedBox(
+                      fit: BoxFit.contain,
+                      child: SizedBox(
+                        width: 180,
+                        height: 180,
+                        child: BouquetPreview(
+                          flowers: b.flowers,
+                          placed: b.placedFlowers.isNotEmpty
+                              ? b.placedFlowers
+                              : null,
+                          ribbon: b.ribbon,
+                          template: b.template,
+                          height: 180,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ),

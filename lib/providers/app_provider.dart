@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../models/models.dart';
@@ -14,13 +15,6 @@ class AppProvider extends ChangeNotifier {
 
   // ── Auth (Supabase tarafından yönetiliyor) ────────────────────────────────
   AppUser? _user;
-  String? _localPhotoPath;
-  String? get localPhotoPath => _localPhotoPath;
-  void setLocalPhotoPath(String path) {
-    _localPhotoPath = path;
-    notifyListeners();
-  }
-
   StreamSubscription<sb.AuthState>? _authSub;
 
   AppUser? get user => _user;
@@ -87,23 +81,6 @@ class AppProvider extends ChangeNotifier {
       ..clear()
       ..addAll(cart);
 
-    final orders = await LocalStorage.loadOrders(uid);
-    _orders
-      ..clear()
-      ..addAll(orders);
-
-    final addrs = await LocalStorage.loadAddresses(uid);
-    _addresses
-      ..clear()
-      ..addAll(addrs.map((a) => AppAddress(
-            id: a.id,
-            title: a.title,
-            city: a.city,
-            district: a.district,
-            fullAddress: a.fullAddress,
-            isDefault: a.isDefault,
-          )));
-
     notifyListeners();
   }
 
@@ -114,8 +91,6 @@ class AppProvider extends ChangeNotifier {
       LocalStorage.saveSaved(uid, List.from(_saved)),
       LocalStorage.saveCollections(uid, List.from(_collections)),
       LocalStorage.saveCart(uid, List.from(_cart)),
-      LocalStorage.saveOrders(uid, List.from(_orders)),
-      LocalStorage.saveAddresses(uid, List.from(_addresses)),
     ]).catchError((_) {});
   }
 
@@ -157,6 +132,7 @@ class AppProvider extends ChangeNotifier {
     _flowers = [];
     _placedFlowers = [];
     _isFreeDesign = false;
+    _designPreviewImage = null;
     _inputName = '';
     _saved.clear();
     _cart.clear();
@@ -185,6 +161,8 @@ class AppProvider extends ChangeNotifier {
   Bouquet? _currentBouquet;
   /// True = serbest tasarla akışından geldi, False = alfabe akışı.
   bool _isFreeDesign = false;
+  /// Canvas'tan alınan PNG görüntüsü — sadece serbest tasarım akışında dolu.
+  Uint8List? _designPreviewImage;
 
   String get inputName => _inputName;
   List<Flower> get flowers => _flowers;
@@ -196,9 +174,46 @@ class AppProvider extends ChangeNotifier {
   Bouquet? get currentBouquet => _currentBouquet;
   bool get hasBouquet => _flowers.isNotEmpty;
   bool get isFreeDesign => _isFreeDesign;
+  Uint8List? get designPreviewImage => _designPreviewImage;
+
+  void setDesignPreviewImage(Uint8List? bytes) {
+    _designPreviewImage = bytes;
+  }
+
+  // ── Profil fotoğrafı (yerel) ──────────────────────────────
+  String? _localPhotoPath;
+  String? get localPhotoPath => _localPhotoPath;
+
+  void setLocalPhotoPath(String path) {
+    _localPhotoPath = path;
+    notifyListeners();
+  }
+
+  /// Sepet/koleksiyon'dan düzenleme için buketi yükler.
+  void updateBouquetName(String name) {
+    if (name.trim().isEmpty) return;
+    _inputName = name.trim();
+    _rebuildBouquet();
+  }
+
+  void loadBouquetForEdit(Bouquet b) {
+    _flowers = List.from(b.flowers);
+    _ribbon = b.ribbon;
+    _size = b.size;
+    _template = b.template;
+    _inputName = b.name;
+    _isFreeDesign = b.placedFlowers.isNotEmpty;
+    _designPreviewImage = b.previewImageBytes;
+    _placedFlowers = b.placedFlowers.isNotEmpty
+        ? List.from(b.placedFlowers)
+        : _generateDomePositions(_flowers);
+    _currentBouquet = b;
+    notifyListeners();
+  }
 
   /// Alfabe akışı: isimden çiçekler + dome pozisyonları üretir.
   void generateBouquet(String name) {
+    _designPreviewImage = null;
     _inputName = turkishUpperCase(name)
         .split('')
         .where((c) => flowerAlphabet.containsKey(c))
@@ -220,10 +235,10 @@ class AppProvider extends ChangeNotifier {
 
   /// Serbest tasarla akışı: kullanıcının placed flower verilerini direkt kullan.
   void setPlacedFlowers(List<PlacedFlowerData> placed,
-      {String? name}) {
+      {String name = 'Tasarımım'}) {
     _placedFlowers = List.from(placed);
     _flowers = placed.map((p) => p.flower).toList();
-    _inputName = name ?? 'Tasarımım';
+    _inputName = name;
     _isFreeDesign = true;
     _rebuildBouquet();
   }
@@ -252,23 +267,6 @@ class AppProvider extends ChangeNotifier {
             ribbon: _ribbon,
             size: _size,
           );
-    notifyListeners();
-  }
-
-  /// Kayıtlı bir buketi editöre yükler (düzenleme akışı).
-  void loadBouquetForEdit(Bouquet bouquet) {
-    _flowers = List.from(bouquet.flowers);
-    _ribbon = bouquet.ribbon;
-    _size = bouquet.size;
-    _inputName = bouquet.name;
-    if (bouquet.placedFlowers.isNotEmpty) {
-      _placedFlowers = List.from(bouquet.placedFlowers);
-      _isFreeDesign = true;
-    } else {
-      _placedFlowers = _generateDomePositions(_flowers);
-      _isFreeDesign = false;
-    }
-    _currentBouquet = bouquet;
     notifyListeners();
   }
 
@@ -318,6 +316,8 @@ class AppProvider extends ChangeNotifier {
         ribbon: _ribbon,
         size: _size,
         template: _template,
+        placedFlowers: _placedFlowers,
+        previewImageBytes: _isFreeDesign ? _designPreviewImage : null,
       );
     }
     notifyListeners();
@@ -696,7 +696,6 @@ class AppProvider extends ChangeNotifier {
     );
     _orders.add(order);
     _cart.clear();
-    _persist();
     _notifications.insert(
       0,
       AppNotification(

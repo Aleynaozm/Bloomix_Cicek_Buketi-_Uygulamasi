@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
@@ -17,10 +19,9 @@ enum _PanelTab { layers, templates }
 /// • Tap & drag ile canvas'a çiçek ekle
 /// • Seçili çiçeği taşı, döndür, büyüt, ön/arka layer
 /// • 🔥 otomatik buket
-/// • [initialPlaced] verilirse düzenleme modunda açılır (hydrated state).
 class FreeDesignScreen extends StatefulWidget {
+  /// Düzenleme modunda önceki çiçekler ile açılır.
   final List<PlacedFlowerData>? initialPlaced;
-
   const FreeDesignScreen({super.key, this.initialPlaced});
 
   @override
@@ -29,6 +30,7 @@ class FreeDesignScreen extends StatefulWidget {
 
 class _FreeDesignScreenState extends State<FreeDesignScreen> {
   final List<PlacedFlowerData> _placed = [];
+  final GlobalKey _canvasKey = GlobalKey();
   String? _selectedId;
   bool _panelOpen = false;
   _PanelTab _activeTab = _PanelTab.layers;
@@ -174,78 +176,38 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
     });
   }
 
-  // ── Tamamla → İsim dialogu → BouquetBuilder ──────────────
+  // ── Tamamla → BouquetBuilder ──────────────────────────────
   Future<void> _confirm() async {
     if (_placed.isEmpty) return;
+
+    // Seçimi kaldır, bir frame bekle, sonra canvas'ı yakala
+    setState(() => _selectedId = null);
+    await Future.microtask(() {});
+
     final prov = context.read<AppProvider>();
 
-    // Düzenleme modunda mevcut ismi başlangıç değeri olarak kullan
-    final existingName = prov.isFreeDesign && prov.inputName.isNotEmpty
-        ? prov.inputName
-        : '';
-    final nameCtrl = TextEditingController(text: existingName);
+    try {
+      final boundary = _canvasKey.currentContext
+          ?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary != null) {
+        final image = await boundary.toImage(pixelRatio: 2.0);
+        final byteData =
+            await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData != null) {
+          prov.setDesignPreviewImage(byteData.buffer.asUint8List());
+        }
+      }
+    } catch (_) {
+      prov.setDesignPreviewImage(null);
+    }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cream,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Tasarımına İsim Ver',
-            style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textDark)),
-        content: TextField(
-          controller: nameCtrl,
-          autofocus: true,
-          maxLength: 30,
-          textCapitalization: TextCapitalization.sentences,
-          style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
-          decoration: InputDecoration(
-            hintText: 'ör. Anneme Özel, Bahar Buketi...',
-            hintStyle: GoogleFonts.poppins(
-                fontSize: 12, color: AppColors.textLight),
-            counterStyle: GoogleFonts.poppins(
-                fontSize: 10, color: AppColors.textLight),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: AppColors.rose, width: 1.5),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.border),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Vazgeç',
-                style: GoogleFonts.poppins(
-                    color: AppColors.textMid, fontWeight: FontWeight.w600)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Devam',
-                style: GoogleFonts.poppins(
-                    color: AppColors.rose, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final name = nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim();
-    prov.setPlacedFlowers(_placed, name: name);
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()),
-    );
+    prov.setPlacedFlowers(_placed, name: 'Tasarımım');
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()),
+      );
+    }
   }
 
   @override
@@ -302,6 +264,7 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
                     placed: _placed,
                     selectedId: _selectedId,
                     template: prov.template,
+                    repaintKey: _canvasKey,
                     onSelect: (id) {
                       _select(id);
                       if (_panelOpen) setState(() => _panelOpen = false);
@@ -757,6 +720,7 @@ class _DesignCanvas extends StatelessWidget {
   final VoidCallback onTapEmpty;
   final void Function(Flower, Offset) onAcceptDrop;
   final BouquetTemplate template;
+  final GlobalKey? repaintKey;
 
   const _DesignCanvas({
     required this.placed,
@@ -766,6 +730,7 @@ class _DesignCanvas extends StatelessWidget {
     required this.onTapEmpty,
     required this.onAcceptDrop,
     required this.template,
+    this.repaintKey,
   });
 
   @override
@@ -778,62 +743,65 @@ class _DesignCanvas extends StatelessWidget {
         builder: (_, __, ___) => GestureDetector(
           onTap: onTapEmpty,
           behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            width: w,
-            height: h,
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
-              children: [
-                // ── Şablon arka planı ──────────────────────
-                Positioned.fill(
-                  child: Image.asset(
-                    template.assetPath,
-                    fit: BoxFit.contain,
-                    alignment: Alignment.center,
-                    errorBuilder: (_, __, ___) => Image.asset(
-                      'assets/images/bouquet_template.png',
+          child: RepaintBoundary(
+            key: repaintKey,
+            child: SizedBox(
+              width: w,
+              height: h,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  // ── Şablon arka planı ──────────────────────
+                  Positioned.fill(
+                    child: Image.asset(
+                      template.assetPath,
                       fit: BoxFit.contain,
                       alignment: Alignment.center,
-                    ),
-                  ),
-                ),
-
-                // ── Boş ipucu ──────────────────────────────
-                if (placed.isEmpty) _CanvasEmptyHint(),
-
-                // ── Yerleştirilmiş çiçekler ─────────────────
-                // Sıralama: placed[0] altta, placed.last üstte (Katman z-order)
-                ...placed.map((p) {
-                  final sel = p.id == selectedId;
-                  const flowerBase = 70.0;
-                  final size = flowerBase * p.scale;
-                  return Positioned(
-                    left: p.position.dx * w - size / 2,
-                    top: p.position.dy * h - size / 2,
-                    width: size,
-                    height: size,
-                    child: GestureDetector(
-                      onTap: () => onSelect(p.id),
-                      onPanStart: (_) => onSelect(p.id),
-                      onPanUpdate: (d) {
-                        final newDx =
-                            (p.position.dx * w + d.delta.dx) / w;
-                        final newDy =
-                            (p.position.dy * h + d.delta.dy) / h;
-                        onMove(p.id, Offset(newDx, newDy));
-                      },
-                      child: Transform.rotate(
-                        angle: p.rotation,
-                        child: _FlowerImage(
-                          flower: p.flower,
-                          size: size,
-                          selected: sel,
-                        ),
+                      errorBuilder: (_, __, ___) => Image.asset(
+                        'assets/images/bouquet_template.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
                       ),
                     ),
-                  );
-                }),
-              ],
+                  ),
+
+                  // ── Boş ipucu ──────────────────────────────
+                  if (placed.isEmpty) _CanvasEmptyHint(),
+
+                  // ── Yerleştirilmiş çiçekler ─────────────────
+                  // Sıralama: placed[0] altta, placed.last üstte (Katman z-order)
+                  ...placed.map((p) {
+                    final sel = p.id == selectedId;
+                    const flowerBase = 70.0;
+                    final size = flowerBase * p.scale;
+                    return Positioned(
+                      left: p.position.dx * w - size / 2,
+                      top: p.position.dy * h - size / 2,
+                      width: size,
+                      height: size,
+                      child: GestureDetector(
+                        onTap: () => onSelect(p.id),
+                        onPanStart: (_) => onSelect(p.id),
+                        onPanUpdate: (d) {
+                          final newDx =
+                              (p.position.dx * w + d.delta.dx) / w;
+                          final newDy =
+                              (p.position.dy * h + d.delta.dy) / h;
+                          onMove(p.id, Offset(newDx, newDy));
+                        },
+                        child: Transform.rotate(
+                          angle: p.rotation,
+                          child: _FlowerImage(
+                            flower: p.flower,
+                            size: size,
+                            selected: sel,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         ),

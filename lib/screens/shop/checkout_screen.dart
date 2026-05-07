@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../models/models.dart';
 import '../../widgets/widgets.dart';
+import '../info/info_screens.dart';
 import 'order_success_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -182,47 +184,252 @@ class _StepBar extends StatelessWidget {
   }
 }
 
-class _DeliveryForm extends StatelessWidget {
+class _DeliveryForm extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController nameCtrl, addressCtrl, phoneCtrl, emailCtrl, msgCtrl;
   const _DeliveryForm({required this.formKey, required this.nameCtrl, required this.addressCtrl,
     required this.phoneCtrl, required this.emailCtrl, required this.msgCtrl});
 
   @override
+  State<_DeliveryForm> createState() => _DeliveryFormState();
+}
+
+class _DeliveryFormState extends State<_DeliveryForm> {
+  String? _selectedAddressId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final prov = context.read<AppProvider>();
+      if (prov.addresses.isNotEmpty) {
+        final def = prov.addresses.firstWhere(
+          (a) => a.isDefault,
+          orElse: () => prov.addresses.first,
+        );
+        _selectAddress(def);
+      }
+    });
+  }
+
+  void _selectAddress(AppAddress a) {
+    setState(() => _selectedAddressId = a.id);
+    widget.addressCtrl.text =
+        '${a.title} — ${a.district}, ${a.city}\n${a.fullAddress}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final prov = context.watch<AppProvider>();
+    final addresses = prov.addresses;
+
     return Form(
-      key: formKey,
+      key: widget.formKey,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Teslimat Bilgileri', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 4),
         Text('Buketi kime gönderelim?', style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 24),
-        _Field(ctrl: nameCtrl, label: 'Ad Soyad', icon: Icons.person_outline,
+
+        _Field(ctrl: widget.nameCtrl, label: 'Ad Soyad', icon: Icons.person_outline,
           validator: (v) => v == null || v.trim().isEmpty ? 'Zorunlu alan' : null),
         const SizedBox(height: 12),
-        _Field(ctrl: phoneCtrl, label: 'Telefon', icon: Icons.phone_outlined,
+        _Field(ctrl: widget.phoneCtrl, label: 'Telefon', icon: Icons.phone_outlined,
           type: TextInputType.phone,
           validator: (v) => v == null || v.length < 10 ? 'Geçerli telefon' : null),
         const SizedBox(height: 12),
-        _Field(ctrl: emailCtrl, label: 'E-posta', icon: Icons.email_outlined,
+        _Field(ctrl: widget.emailCtrl, label: 'E-posta', icon: Icons.email_outlined,
           type: TextInputType.emailAddress,
           validator: (v) => v == null || !v.contains('@') ? 'Geçerli e-posta' : null),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: addressCtrl, maxLines: 3,
-          decoration: const InputDecoration(labelText: 'Teslimat Adresi',
-            alignLabelWithHint: true,
-            prefixIcon: Padding(padding: EdgeInsets.only(bottom: 40),
-              child: Icon(Icons.location_on_outlined, size: 20, color: AppColors.textLight))),
-          validator: (v) => v == null || v.trim().isEmpty ? 'Adres zorunlu' : null,
+        const SizedBox(height: 20),
+
+        // ── Teslimat Adresi ──────────────────────────────────
+        Row(children: [
+          const Icon(Icons.location_on_outlined, size: 18, color: AppColors.rose),
+          const SizedBox(width: 6),
+          Text('Teslimat Adresi',
+              style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark)),
+          const Spacer(),
+          GestureDetector(
+            onTap: () async {
+              await AddressFormSheet.show(context);
+              // Yeni adres eklendikten sonra otomatik seç
+              final updated = context.read<AppProvider>().addresses;
+              if (updated.isNotEmpty && _selectedAddressId == null) {
+                _selectAddress(updated.last);
+              }
+            },
+            child: Text('+ Yeni Adres',
+                style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.rose)),
+          ),
+        ]),
+        const SizedBox(height: 10),
+
+        // Kayıtlı adresler
+        if (addresses.isEmpty)
+          // Adres yok — inline mesaj
+          GestureDetector(
+            onTap: () async {
+              await AddressFormSheet.show(context);
+              final updated = context.read<AppProvider>().addresses;
+              if (updated.isNotEmpty) _selectAddress(updated.last);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.rose.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: AppColors.rose.withOpacity(0.3),
+                    width: 1.5,
+                    style: BorderStyle.solid),
+              ),
+              child: Row(children: [
+                const Icon(Icons.add_location_alt_outlined,
+                    size: 20, color: AppColors.rose),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Teslimat adresi ekle',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.rose,
+                          fontWeight: FontWeight.w600)),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 18, color: AppColors.rose),
+              ]),
+            ),
+          )
+        else
+          ...addresses.map((a) {
+            final sel = a.id == _selectedAddressId;
+            return GestureDetector(
+              onTap: () => _selectAddress(a),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: sel
+                      ? AppColors.rose.withOpacity(0.06)
+                      : AppColors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: sel ? AppColors.rose : AppColors.border,
+                    width: sel ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: sel
+                          ? AppColors.rose.withOpacity(0.12)
+                          : AppColors.cream,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      sel
+                          ? Icons.location_on_rounded
+                          : Icons.location_on_outlined,
+                      size: 18,
+                      color: sel ? AppColors.rose : AppColors.textLight,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Row(children: [
+                        Text(a.title,
+                            style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: sel
+                                    ? AppColors.rose
+                                    : AppColors.textDark)),
+                        if (a.isDefault) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.rose.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text('Varsayılan',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.rose)),
+                          ),
+                        ],
+                      ]),
+                      const SizedBox(height: 2),
+                      Text('${a.district}, ${a.city}',
+                          style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: AppColors.textLight)),
+                      Text(a.fullAddress,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              color: AppColors.textLight)),
+                    ]),
+                  ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color:
+                            sel ? AppColors.rose : AppColors.textLight,
+                        width: sel ? 6 : 1.5,
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+            );
+          }),
+
+        // Hidden validator — adres seçili mi kontrol eder
+        FormField<String>(
+          initialValue: widget.addressCtrl.text,
+          validator: (_) => widget.addressCtrl.text.trim().isEmpty
+              ? 'Lütfen bir teslimat adresi seçin'
+              : null,
+          builder: (field) => field.hasError
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(field.errorText!,
+                      style: TextStyle(
+                          fontSize: 12, color: Theme.of(context).colorScheme.error)),
+                )
+              : const SizedBox.shrink(),
         ),
-        const SizedBox(height: 12),
+
+        const SizedBox(height: 16),
         TextFormField(
-          controller: msgCtrl, maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Hediye Mesajı (opsiyonel)',
-            alignLabelWithHint: true,
-            prefixIcon: Padding(padding: EdgeInsets.only(bottom: 20),
-              child: Icon(Icons.card_giftcard_outlined, size: 20, color: AppColors.textLight))),
+          controller: widget.msgCtrl, maxLines: 2,
+          decoration: const InputDecoration(
+              labelText: 'Sipariş Notu (opsiyonel)',
+              alignLabelWithHint: true,
+              prefixIcon: Padding(
+                  padding: EdgeInsets.only(bottom: 20),
+                  child: Icon(Icons.card_giftcard_outlined,
+                      size: 20, color: AppColors.textLight))),
         ),
       ]),
     );

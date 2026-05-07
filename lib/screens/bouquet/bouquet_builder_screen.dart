@@ -10,14 +10,12 @@ import '../../widgets/save_to_collection_sheet.dart';
 import '../../widgets/share_sheet.dart';
 import '../shop/cart_screen.dart';
 import 'free_design_screen.dart';
-import 'name_input_screen.dart';
 
 // ── Ek ücret sabitleri ─────────────────────────────────────
 const double _kGiftNoteFee = 50.0;
 const double _kNftMintFee  = 299.0;
 
 /// Tasarımım — buket önizleme + siparişe hazırlık ekranı.
-/// [cartItem] verilirse sepetteki önceki not/tarih/NFT verileri geri yüklenir.
 class BouquetBuilderScreen extends StatefulWidget {
   final CartItem? cartItem;
   const BouquetBuilderScreen({super.key, this.cartItem});
@@ -29,11 +27,13 @@ class BouquetBuilderScreen extends StatefulWidget {
 class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   final GlobalKey _previewKey = GlobalKey();
   final TextEditingController _noteCtrl = TextEditingController();
+  late final TextEditingController _nameCtrl;
+  bool _named = false;   // true olunca isimlendirme bölümü kapanır
 
   DateTime? _deliveryDate;
   bool _isNftActive   = false;
   bool _isMinting     = false;
-  String? _mintHash;
+  String? _mintHash;            // Mock blockchain hash
 
   // ── Fiyat hesapları ───────────────────────────────────────
   bool get _hasNote => _noteCtrl.text.trim().isNotEmpty;
@@ -44,21 +44,30 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   @override
   void initState() {
     super.initState();
-    // Sepetten düzenleme modunda önceki verileri geri yükle
-    final ci = widget.cartItem;
-    if (ci != null) {
-      if (ci.giftNote?.isNotEmpty == true) _noteCtrl.text = ci.giftNote!;
-      _deliveryDate = ci.deliveryDate;
-      _isNftActive  = ci.isNft;
-      _mintHash     = ci.nftHash;
-    }
     _noteCtrl.addListener(() => setState(() {}));
+    final prov = context.read<AppProvider>();
+    final currentName = prov.inputName;
+    _named = prov.isFreeDesign
+        ? (currentName.isNotEmpty && currentName != 'Tasarımım')
+        : true; // alfabe akışında isim zaten var
+    _nameCtrl = TextEditingController(
+      text: _named ? currentName : '',
+    );
   }
 
   @override
   void dispose() {
     _noteCtrl.dispose();
+    _nameCtrl.dispose();
     super.dispose();
+  }
+
+  void _saveName(AppProvider prov) {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    prov.updateBouquetName(name);
+    setState(() => _named = true);
+    FocusScope.of(context).unfocus();
   }
 
   // ── Teslimat tarihi seçici ─────────────────────────────────
@@ -162,12 +171,8 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   }
 
   // ── Paylaş ─────────────────────────────────────────────────
-  void _share(Bouquet b) => ShareSheet.show(
-        context,
-        previewKey: _previewKey,
-        bouquet: b,
-        displayName: b.name,
-      );
+  void _share(Bouquet b) =>
+      ShareSheet.show(context, previewKey: _previewKey, bouquet: b);
 
   void _toast(String msg, {Color? bg}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -207,35 +212,33 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           title: Text(
-            prov.inputName.isEmpty ? 'Buketim' : prov.inputName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            isFreeDesign
+                ? 'Tasarımım'
+                : (prov.inputName.isEmpty ? 'Buketim' : prov.inputName),
             style: GoogleFonts.dmSerifDisplay(
-              fontSize: 20,
+              fontSize: 28,
               color: AppColors.rose,
-              letterSpacing: 0.5,
+              letterSpacing: isFreeDesign ? 0.5 : 4,
             ),
           ),
           centerTitle: true,
           actions: [
-            // ✏ Düzenle
-            IconButton(
-              tooltip: 'Tasarımı Düzenle',
-              icon: const Icon(Icons.edit_rounded, color: AppColors.rose),
-              onPressed: bouquet == null
-                  ? null
-                  : () {
-                      prov.loadBouquetForEdit(bouquet);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => FreeDesignScreen(
-                            initialPlaced: prov.placedFlowers.toList(),
-                          ),
-                        ),
-                      );
-                    },
-            ),
+            // ✏ Düzenle (sadece serbest tasarımda)
+            if (isFreeDesign)
+              IconButton(
+                tooltip: 'Tasarımı Düzenle',
+                icon: const Icon(Icons.edit_rounded, color: AppColors.rose),
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FreeDesignScreen(
+                        initialPlaced: prov.placedFlowers.toList(),
+                      ),
+                    ),
+                  );
+                },
+              ),
             // ❤ Favori
             IconButton(
               tooltip: isFavorite ? 'Favorilerden çıkar' : 'Favorile',
@@ -326,14 +329,19 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                                 child: Text('Çiçek yok',
                                     style: TextStyle(
                                         color: AppColors.textLight)))
-                            : BouquetPreview(
-                                flowers: prov.flowers,
-                                placed: placed.isNotEmpty
-                                    ? placed.toList()
-                                    : null,
-                                ribbon: prov.ribbon,
-                                template: prov.template,
-                              ),
+                            : (isFreeDesign && prov.designPreviewImage != null
+                                ? Image.memory(
+                                    prov.designPreviewImage!,
+                                    fit: BoxFit.contain,
+                                  )
+                                : BouquetPreview(
+                                    flowers: prov.flowers,
+                                    placed: placed.isNotEmpty
+                                        ? placed.toList()
+                                        : null,
+                                    ribbon: prov.ribbon,
+                                    template: prov.template,
+                                  )),
                       ),
                     ),
                     if (_hasNote)
@@ -352,7 +360,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  // Alfabe bilgisi — yalnızca alfabe akışında göster
+                  // Alfabe bilgisi
                   if (!isFreeDesign && prov.flowers.isNotEmpty) ...[
                     Center(
                       child: FittedBox(
@@ -413,6 +421,18 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                     const SizedBox(height: 8),
                   ],
 
+                  if (isFreeDesign && placed.isNotEmpty) ...[
+                    // ── Tasarım İsmi ───────────────────────────
+                    _DesignNameSection(
+                      ctrl: _nameCtrl,
+                      named: _named,
+                      currentName: prov.inputName,
+                      flowerCount: placed.length,
+                      ribbonLabel: prov.ribbon.label,
+                      onSave: () => _saveName(prov),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
 
                   // ── Hediye Notu ──────────────────────────────
                   _GiftNoteSection(controller: _noteCtrl),
@@ -474,6 +494,138 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
 // ══════════════════════════════════════════════════════════════
 // MODÜLER WİDGET'LAR
 // ══════════════════════════════════════════════════════════════
+
+// ── Tasarım İsimlendirme ─────────────────────────────────────
+/// İlk açılışta belirgin form gösterir. İsim kaydedilince
+/// compact satıra dönüşür ve bir daha gösterilmez.
+class _DesignNameSection extends StatelessWidget {
+  final TextEditingController ctrl;
+  final bool named;
+  final String currentName;
+  final int flowerCount;
+  final String ribbonLabel;
+  final VoidCallback onSave;
+
+  const _DesignNameSection({
+    required this.ctrl,
+    required this.named,
+    required this.currentName,
+    required this.flowerCount,
+    required this.ribbonLabel,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (named) {
+      // Compact: isim + çiçek bilgisi, düzenleme yok
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.local_florist_rounded,
+              size: 14, color: AppColors.rose),
+          const SizedBox(width: 6),
+          Text(
+            currentName,
+            style: GoogleFonts.dmSerifDisplay(
+                fontSize: 18,
+                color: AppColors.rose,
+                letterSpacing: 0.5),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '· $flowerCount çiçek',
+            style: GoogleFonts.poppins(
+                fontSize: 11, color: AppColors.textLight),
+          ),
+        ],
+      );
+    }
+
+    // Belirgin isimlendirme formu
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: AppColors.rose.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.rose.withOpacity(0.25)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.edit_rounded, size: 16, color: AppColors.rose),
+          const SizedBox(width: 8),
+          Text('Tasarımına bir isim ver',
+              style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark)),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: ctrl,
+              autofocus: false,
+              textCapitalization: TextCapitalization.words,
+              maxLength: 30,
+              style: GoogleFonts.poppins(
+                  fontSize: 14, color: AppColors.textDark),
+              decoration: InputDecoration(
+                hintText: 'ör. Anneme Özel, Bahar Buketi…',
+                hintStyle: GoogleFonts.poppins(
+                    fontSize: 12, color: AppColors.textLight),
+                counterText: '',
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.rose, width: 1.5),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                filled: true,
+                fillColor: AppColors.white,
+              ),
+              onSubmitted: (_) => onSave(),
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onSave,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 18, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.rose,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text('Kaydet',
+                  style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white)),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        Text(
+          '$flowerCount çiçek · $ribbonLabel kurdele',
+          style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: AppColors.textLight,
+              fontStyle: FontStyle.italic),
+        ),
+      ]),
+    );
+  }
+}
 
 // ── Hediye Notu Önizleme ────────────────────────────────────
 class _NotePreview extends StatelessWidget {

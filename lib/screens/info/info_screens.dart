@@ -7,6 +7,20 @@ import '../../providers/app_provider.dart';
 import '../../widgets/widgets.dart';
 import '../../data/turkey_cities.dart';
 
+/// Herhangi bir ekrandan adres ekleme formunu açar.
+class AddressFormSheet {
+  static Future<void> show(BuildContext context, {AppAddress? existing}) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cream,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => _AddressFormSheet(existing: existing),
+    );
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Adreslerim
 // ══════════════════════════════════════════════════════════════════════════════

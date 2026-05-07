@@ -107,22 +107,24 @@ class _PurchasedBouquetCard extends StatelessWidget {
           child: Container(
             width: double.infinity,
             color: bouquet.ribbon.color.withOpacity(0.08),
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: SizedBox(
-                width: 200,
-                height: 200,
-                child: BouquetPreview(
-                  flowers: bouquet.flowers,
-                  placed: bouquet.placedFlowers.isNotEmpty
-                      ? bouquet.placedFlowers
-                      : null,
-                  ribbon: bouquet.ribbon,
-                  template: bouquet.template,
-                  height: 200,
-                ),
-              ),
-            ),
+            child: bouquet.previewImageBytes != null
+                ? Image.memory(bouquet.previewImageBytes!, fit: BoxFit.contain)
+                : FittedBox(
+                    fit: BoxFit.contain,
+                    child: SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: BouquetPreview(
+                        flowers: bouquet.flowers,
+                        placed: bouquet.placedFlowers.isNotEmpty
+                            ? bouquet.placedFlowers
+                            : null,
+                        ribbon: bouquet.ribbon,
+                        template: bouquet.template,
+                        height: 200,
+                      ),
+                    ),
+                  ),
           ),
         ),
 
