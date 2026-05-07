@@ -182,47 +182,205 @@ class _StepBar extends StatelessWidget {
   }
 }
 
-class _DeliveryForm extends StatelessWidget {
+class _DeliveryForm extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController nameCtrl, addressCtrl, phoneCtrl, emailCtrl, msgCtrl;
   const _DeliveryForm({required this.formKey, required this.nameCtrl, required this.addressCtrl,
     required this.phoneCtrl, required this.emailCtrl, required this.msgCtrl});
 
   @override
+  State<_DeliveryForm> createState() => _DeliveryFormState();
+}
+
+class _DeliveryFormState extends State<_DeliveryForm> {
+  String? _selectedAddressId; // null = manuel giriş
+
+  void _selectAddress(AppAddress addr) {
+    setState(() => _selectedAddressId = addr.id);
+    widget.addressCtrl.text =
+        '${addr.fullAddress}, ${addr.district}/${addr.city}';
+  }
+
+  void _clearSelection() {
+    setState(() => _selectedAddressId = null);
+    widget.addressCtrl.clear();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final addresses = context.watch<AppProvider>().addresses;
+
     return Form(
-      key: formKey,
+      key: widget.formKey,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Teslimat Bilgileri', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 4),
         Text('Buketi kime gönderelim?', style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 24),
-        _Field(ctrl: nameCtrl, label: 'Ad Soyad', icon: Icons.person_outline,
+
+        _Field(ctrl: widget.nameCtrl, label: 'Ad Soyad', icon: Icons.person_outline,
           validator: (v) => v == null || v.trim().isEmpty ? 'Zorunlu alan' : null),
         const SizedBox(height: 12),
-        _Field(ctrl: phoneCtrl, label: 'Telefon', icon: Icons.phone_outlined,
+        _Field(ctrl: widget.phoneCtrl, label: 'Telefon', icon: Icons.phone_outlined,
           type: TextInputType.phone,
           validator: (v) => v == null || v.length < 10 ? 'Geçerli telefon' : null),
         const SizedBox(height: 12),
-        _Field(ctrl: emailCtrl, label: 'E-posta', icon: Icons.email_outlined,
+        _Field(ctrl: widget.emailCtrl, label: 'E-posta', icon: Icons.email_outlined,
           type: TextInputType.emailAddress,
           validator: (v) => v == null || !v.contains('@') ? 'Geçerli e-posta' : null),
+        const SizedBox(height: 16),
+
+        // ── Adres Seçimi ──────────────────────────────────────────────────
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Teslimat Adresi',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+          if (_selectedAddressId != null)
+            GestureDetector(
+              onTap: _clearSelection,
+              child: Text('Manuel gir',
+                  style: TextStyle(fontSize: 11, color: AppColors.rose, fontWeight: FontWeight.w600)),
+            ),
+        ]),
+        const SizedBox(height: 8),
+
+        if (addresses.isNotEmpty && _selectedAddressId == null) ...[
+          // Kayıtlı adres kartları
+          ...addresses.map((addr) => GestureDetector(
+            onTap: () => _selectAddress(addr),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                      color: AppColors.rose.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.location_on_outlined, color: AppColors.rose, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text(addr.title,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                    if (addr.isDefault) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                            color: AppColors.rose.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(50)),
+                        child: Text('Varsayılan',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: AppColors.rose)),
+                      ),
+                    ],
+                  ]),
+                  Text('${addr.district}, ${addr.city}',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textMid)),
+                ])),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppColors.textLight),
+              ]),
+            ),
+          )),
+          // Manuel giriş seçeneği
+          GestureDetector(
+            onTap: () => setState(() => _selectedAddressId = 'manual'),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.beige,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                      color: AppColors.textLight.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.edit_location_alt_outlined, color: AppColors.textMid, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Text('Yeni adres gir',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textMid)),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+
+        // Seçili adres göstergesi veya manuel metin alanı
+        if (_selectedAddressId != null && _selectedAddressId != 'manual') ...[
+          // Seçili adres kartı
+          Builder(builder: (_) {
+            final addr = context.read<AppProvider>().addresses
+                .firstWhere((a) => a.id == _selectedAddressId);
+            return Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.rose.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.rose.withValues(alpha: 0.3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.check_circle_rounded, color: AppColors.rose, size: 18),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(addr.title,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.rose)),
+                  Text(addr.fullAddress,
+                      style: const TextStyle(fontSize: 11, color: AppColors.textMid)),
+                  Text('${addr.district}, ${addr.city}',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
+                ])),
+              ]),
+            );
+          }),
+          // Gizli validator (fontSize:0 crash'ini önlemek için FormField kullanılıyor)
+          FormField<String>(
+            validator: (_) => widget.addressCtrl.text.trim().isEmpty ? 'Adres zorunlu' : null,
+            builder: (f) => f.errorText != null
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(f.errorText!,
+                        style: const TextStyle(fontSize: 11, color: Colors.red)))
+                : const SizedBox.shrink(),
+          ),
+        ] else if (_selectedAddressId == 'manual' || addresses.isEmpty) ...[
+          TextFormField(
+            controller: widget.addressCtrl, maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Teslimat Adresi',
+              alignLabelWithHint: true,
+              prefixIcon: Padding(padding: EdgeInsets.only(bottom: 40),
+                child: Icon(Icons.location_on_outlined, size: 20, color: AppColors.textLight))),
+            validator: (v) => v == null || v.trim().isEmpty ? 'Adres zorunlu' : null,
+          ),
+        ] else ...[
+          // Adresler var ama henüz seçilmedi → gizli validator
+          FormField<String>(
+            validator: (_) => widget.addressCtrl.text.trim().isEmpty ? 'Lütfen bir adres seçin' : null,
+            builder: (f) => f.errorText != null
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(f.errorText!,
+                        style: const TextStyle(fontSize: 11, color: Colors.red)))
+                : const SizedBox.shrink(),
+          ),
+        ],
+
         const SizedBox(height: 12),
         TextFormField(
-          controller: addressCtrl, maxLines: 3,
-          decoration: const InputDecoration(labelText: 'Teslimat Adresi',
-            alignLabelWithHint: true,
-            prefixIcon: Padding(padding: EdgeInsets.only(bottom: 40),
-              child: Icon(Icons.location_on_outlined, size: 20, color: AppColors.textLight))),
-          validator: (v) => v == null || v.trim().isEmpty ? 'Adres zorunlu' : null,
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: msgCtrl, maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Hediye Mesajı (opsiyonel)',
+          controller: widget.msgCtrl, maxLines: 2,
+          decoration: const InputDecoration(labelText: 'Sipariş Notu (opsiyonel)',
             alignLabelWithHint: true,
             prefixIcon: Padding(padding: EdgeInsets.only(bottom: 20),
-              child: Icon(Icons.card_giftcard_outlined, size: 20, color: AppColors.textLight))),
+              child: Icon(Icons.note_outlined, size: 20, color: AppColors.textLight))),
         ),
       ]),
     );

@@ -87,10 +87,12 @@
         <string>sms</string>
         <string>mailto</string>
     </array>
-    <!-- gal: Fotoğraf Galerisi izin açıklamaları -->
+    <!-- gal + image_picker: Fotoğraf Galerisi izin açıklamaları -->
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Bloomix buket tasarımlarınızı galerinize kaydetmek için izin gerekiyor.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Bloomix buket tasarımlarınızı galerinize kaydetmek için izin gerekiyor.</string>
+    <string>Bloomix profil fotoğrafınızı ve buket tasarımlarınızı galerinizden seçmek için izin gerekiyor.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Bloomix profil fotoğrafınızı çekmek için kamera erişimi gerekiyor.</string>
 </dict>
 </plist>

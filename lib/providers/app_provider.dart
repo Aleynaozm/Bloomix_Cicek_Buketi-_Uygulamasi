@@ -50,6 +50,8 @@ class AppProvider extends ChangeNotifier {
     final saved = await LocalStorage.loadSaved(uid);
     final cols = await LocalStorage.loadCollections(uid);
     final cart = await LocalStorage.loadCart(uid);
+    final addrs = await LocalStorage.loadAddresses(uid);
+    final orders = await LocalStorage.loadOrders(uid);
 
     _saved
       ..clear()
@@ -80,6 +82,21 @@ class AppProvider extends ChangeNotifier {
       ..clear()
       ..addAll(cart);
 
+    _addresses
+      ..clear()
+      ..addAll(addrs.map((a) => AppAddress(
+            id: a.id,
+            title: a.title,
+            city: a.city,
+            district: a.district,
+            fullAddress: a.fullAddress,
+            isDefault: a.isDefault,
+          )));
+
+    _orders
+      ..clear()
+      ..addAll(orders);
+
     notifyListeners();
   }
 
@@ -90,6 +107,8 @@ class AppProvider extends ChangeNotifier {
       LocalStorage.saveSaved(uid, List.from(_saved)),
       LocalStorage.saveCollections(uid, List.from(_collections)),
       LocalStorage.saveCart(uid, List.from(_cart)),
+      LocalStorage.saveAddresses(uid, List.from(_addresses)),
+      LocalStorage.saveOrders(uid, List.from(_orders)),
     ]).catchError((_) {});
   }
 
@@ -119,10 +138,17 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await SupabaseService.updateProfile(fullName: name);
-    } catch (_) {
-      // Hata olursa lokal state'i geri almıyoruz; sonraki refresh düzeltir.
-    }
+    } catch (_) {}
   }
+
+  /// Yerel fotoğraf path'ini güncelle (image_picker'dan gelen dosya yolu).
+  void setLocalPhotoPath(String path) {
+    _localPhotoPath = path;
+    notifyListeners();
+  }
+
+  String? _localPhotoPath;
+  String? get localPhotoPath => _localPhotoPath;
 
   Future<void> logout() async {
     _loadedForUserId = null;
@@ -180,21 +206,47 @@ class AppProvider extends ChangeNotifier {
     _flowers = getFlowersForName(name);
     _isFreeDesign = false;
     _placedFlowers = _generateDomePositions(_flowers);
-    _rebuildBouquetWithNewId();
+    _currentBouquet = _flowers.isEmpty
+        ? null
+        : Bouquet(
+            id: 'b_${DateTime.now().millisecondsSinceEpoch}',
+            name: _inputName,
+            flowers: _flowers,
+            ribbon: _ribbon,
+            size: _size,
+          );
     notifyListeners();
   }
 
   /// Serbest tasarla akışı: kullanıcının placed flower verilerini direkt kullan.
-  void setPlacedFlowers(List<PlacedFlowerData> placed, {String? name}) {
+  void setPlacedFlowers(List<PlacedFlowerData> placed,
+      {String? name}) {
     _placedFlowers = List.from(placed);
     _flowers = placed.map((p) => p.flower).toList();
-    final now = DateTime.now();
-    _inputName = name ?? 'Tasarım ${now.day.toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}';
+    _inputName = name ?? 'Tasarımım';
     _isFreeDesign = true;
     _rebuildBouquet();
   }
 
+  /// Mevcut bir buketi düzenleme moduna yükler.
+  /// Serbest tasarım ise placed pozisyonları korur, değilse dome pozisyonu üretir.
+  void loadBouquetForEdit(Bouquet bouquet) {
+    _flowers = List.from(bouquet.flowers);
+    _ribbon = bouquet.ribbon;
+    _size = bouquet.size;
+    _inputName = bouquet.name;
+    _template = bouquet.template;
+    _isFreeDesign = bouquet.placedFlowers.isNotEmpty;
+    _placedFlowers = bouquet.placedFlowers.isNotEmpty
+        ? List.from(bouquet.placedFlowers)
+        : _generateDomePositions(_flowers);
+    _currentBouquet = bouquet;
+    notifyListeners();
+  }
+
   /// Özel Gün şablon buketini editöre yükler (Kişiselleştir akışı).
+  /// Çiçek listesinden otomatik dome pozisyonu üretilir; kullanıcı
+  /// BouquetBuilder + Customize'da kurdele/boyut değiştirebilir.
   void loadTemplateBouquet({
     required String name,
     required List<Flower> flowers,
@@ -207,25 +259,15 @@ class AppProvider extends ChangeNotifier {
     _inputName = name;
     _isFreeDesign = false;
     _placedFlowers = _generateDomePositions(_flowers);
-    _rebuildBouquetWithNewId();
-    notifyListeners();
-  }
-
-  /// Kaydedilmiş/sepetteki buketi düzenleme moduna yükler.
-  /// FreeDesignScreen + BouquetBuilderScreen için tam state restore eder.
-  void loadBouquetForEdit(Bouquet b) {
-    _inputName = b.name;
-    _flowers = List.from(b.flowers);
-    _ribbon = b.ribbon;
-    _size = b.size;
-    _template = b.template;
-    // Kayıtlı/sepetteki tasarımlar her zaman serbest tasarım modunda açılır
-    // → alfabe harf çipleri gösterilmez.
-    _isFreeDesign = true;
-    _placedFlowers = b.placedFlowers.isNotEmpty
-        ? List.from(b.placedFlowers)
-        : _generateDomePositions(b.flowers);
-    _currentBouquet = b.copyWith(placedFlowers: _placedFlowers);
+    _currentBouquet = _flowers.isEmpty
+        ? null
+        : Bouquet(
+            id: 'b_${DateTime.now().millisecondsSinceEpoch}',
+            name: name,
+            flowers: _flowers,
+            ribbon: _ribbon,
+            size: _size,
+          );
     notifyListeners();
   }
 
@@ -275,24 +317,9 @@ class AppProvider extends ChangeNotifier {
         ribbon: _ribbon,
         size: _size,
         template: _template,
-        placedFlowers: List.from(_placedFlowers),
       );
     }
     notifyListeners();
-  }
-
-  void _rebuildBouquetWithNewId() {
-    if (_flowers.isNotEmpty) {
-      _currentBouquet = Bouquet(
-        id: 'b_${DateTime.now().millisecondsSinceEpoch}',
-        name: _inputName,
-        flowers: _flowers,
-        ribbon: _ribbon,
-        size: _size,
-        template: _template,
-        placedFlowers: List.from(_placedFlowers),
-      );
-    }
   }
 
   // ── Saved + Collections ─────────────────────────────────────────────────
@@ -561,27 +588,91 @@ class AppProvider extends ChangeNotifier {
   // ── Notifications ─────────────────────────────────────────────────────────
   final List<AppNotification> _notifications = [
     AppNotification(
+      id: 'sys_welcome',
+      type: 'system',
       title: 'Bloomix\'e Hoş Geldin!',
       body: 'İsminden ilk buketini oluştur.',
       time: DateTime.now().subtract(const Duration(minutes: 5)),
+      isRead: false,
     ),
     AppNotification(
+      id: 'sys_flower',
+      type: 'system',
       title: 'Yeni Çiçek Eklendi',
       body: 'Krizantem koleksiyona katıldı!',
       time: DateTime.now().subtract(const Duration(hours: 2)),
+      isRead: false,
     ),
     AppNotification(
+      id: 'campaign_1',
+      type: 'campaign',
       title: 'Kampanya',
       body: 'Bu hafta büyük buketlerde %10 indirim!',
       time: DateTime.now().subtract(const Duration(days: 1)),
+      isRead: true,
     ),
   ];
   List<AppNotification> get notifications => List.unmodifiable(_notifications);
-  int get unreadCount => _notifications.length;
+  int get unreadCount => _notifications.where((n) => !n.isRead).length;
+
+  void markNotificationRead(String id) {
+    final n = _notifications.firstWhere((n) => n.id == id, orElse: () => _notifications.first);
+    if (!n.isRead) { n.isRead = true; notifyListeners(); }
+  }
+
+  void markAllNotificationsRead() {
+    for (final n in _notifications) { n.isRead = true; }
+    notifyListeners();
+  }
+
+  // ── Addresses ─────────────────────────────────────────────────────────────
+  final List<AppAddress> _addresses = [];
+  List<AppAddress> get addresses => List.unmodifiable(_addresses);
+
+  void addAddress(AppAddress a) {
+    if (a.isDefault) {
+      for (var i = 0; i < _addresses.length; i++) {
+        _addresses[i] = _addresses[i].copyWith(isDefault: false);
+      }
+    }
+    _addresses.add(a);
+    notifyListeners();
+    _persist();
+  }
+
+  void updateAddress(AppAddress updated) {
+    if (updated.isDefault) {
+      for (var i = 0; i < _addresses.length; i++) {
+        if (_addresses[i].id != updated.id) {
+          _addresses[i] = _addresses[i].copyWith(isDefault: false);
+        }
+      }
+    }
+    final idx = _addresses.indexWhere((a) => a.id == updated.id);
+    if (idx >= 0) _addresses[idx] = updated;
+    notifyListeners();
+    _persist();
+  }
+
+  void removeAddress(String id) {
+    _addresses.removeWhere((a) => a.id == id);
+    notifyListeners();
+    _persist();
+  }
 
   // ── Orders ────────────────────────────────────────────────────────────────
   final List<Order> _orders = [];
   List<Order> get orders => List.unmodifiable(_orders.reversed.toList());
+  List<Order> get activeOrders =>
+      orders.where((o) => o.status != OrderStatus.delivered).toList();
+  List<Order> get pastOrders =>
+      orders.where((o) => o.status == OrderStatus.delivered).toList();
+
+  // ── Notification preferences ──────────────────────────────────────────────
+  bool notifOrders = true;
+  bool notifCampaigns = false;
+  void setNotifOrders(bool v) { notifOrders = v; notifyListeners(); }
+  void setNotifCampaigns(bool v) { notifCampaigns = v; notifyListeners(); }
 
   /// Sepetteki tüm buketleri tek bir order'a çevirir.
   /// Cart boşsa null döner. Order başarılı olunca cart temizlenir.
@@ -610,19 +701,66 @@ class AppProvider extends ChangeNotifier {
     _notifications.insert(
       0,
       AppNotification(
+        id: 'order_${order.id}',
+        type: 'order',
         title: 'Siparişin Alındı!',
         body: '${order.id} numaralı siparişin onaylandı.',
         time: DateTime.now(),
       ),
     );
     notifyListeners();
+    _persist();
     return order;
   }
 }
 
 class AppNotification {
+  final String id;
+  final String type; // 'order' | 'campaign' | 'system'
   final String title;
   final String body;
   final DateTime time;
-  AppNotification({required this.title, required this.body, required this.time});
+  bool isRead;
+  AppNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.body,
+    required this.time,
+    this.isRead = false,
+  });
+}
+
+class AppAddress {
+  final String id;
+  final String title;
+  final String city;
+  final String district;
+  final String fullAddress;
+  final bool isDefault;
+
+  AppAddress({
+    required this.id,
+    required this.title,
+    required this.city,
+    required this.district,
+    required this.fullAddress,
+    this.isDefault = false,
+  });
+
+  AppAddress copyWith({
+    String? title,
+    String? city,
+    String? district,
+    String? fullAddress,
+    bool? isDefault,
+  }) =>
+      AppAddress(
+        id: id,
+        title: title ?? this.title,
+        city: city ?? this.city,
+        district: district ?? this.district,
+        fullAddress: fullAddress ?? this.fullAddress,
+        isDefault: isDefault ?? this.isDefault,
+      );
 }
