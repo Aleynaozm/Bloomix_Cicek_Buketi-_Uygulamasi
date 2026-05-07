@@ -49,7 +49,9 @@ class SavedBouquetCard extends StatelessWidget {
                 color: b.ribbon.color.withOpacity(0.08),
                 child: BouquetPreview(
                   flowers: b.flowers,
+                  placed: b.placedFlowers.isNotEmpty ? b.placedFlowers : null,
                   ribbon: b.ribbon,
+                  template: b.template,
                   height: 180,
                 ),
               ),

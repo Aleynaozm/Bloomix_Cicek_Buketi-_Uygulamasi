@@ -1,71 +1,65 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../models/models.dart';
 
-/// Buket görselini farklı formatlara render eden composite servis.
+/// Buket görselini estetik export formatına dönüştüren servis.
 ///
-/// İki çıktı:
-/// • `renderSquare`: kare PNG — buket + alt watermark stripi
-/// • `renderStory`: 9:16 dikey PNG — pembe gradient zemin + buket + isim +
-///   stat kart + Bloomix watermark (Instagram/WhatsApp story için ideal)
+/// Her iki çıktı da aynı tasarım diline sahiptir:
+/// • Cream zemin (#F9F9F7)
+/// • Buket tam ortada, canvas'ın ~%60'ını kaplıyor
+/// • "Bloomix ile oluşturuldu" — Dancing Script, yumuşak antrasit
 ///
-/// Her ikisi de "Bloomix ile yapıldı" markasını içerir.
+/// Fiyat, brick sayısı veya teknik bilgi yoktur.
+///
+/// Formatlar:
+/// • [renderSquare] → 1080 × 1350 (Portre 4:5) — WhatsApp / Galeri
+/// • [renderStory]  → 1080 × 1920 (9:16)       — Instagram Hikaye
 class BouquetExporter {
-  static const _watermarkColor = Color(0xFFFF74B3);
-  static const _creamBg = Color(0xFFFAF7F2);
-  static const _textDark = Color(0xFF1C1410);
-  static const _textMid = Color(0xFF6B5B45);
+  // ── Canvas boyutları ──────────────────────────────────────
+  static const _portraitW = 1080.0;
+  static const _portraitH = 1350.0; // Portre 4:5 — WhatsApp / Galeri
+  static const _storyW    = 1080.0;
+  static const _storyH    = 1920.0; // Story 9:16 — Instagram
 
-  /// On-screen RepaintBoundary'i yakala + altına watermark şerifi ekle.
-  /// Çıktı: kare PNG bytes (paylaşmaya/galeriye uygun).
+  // ── Tasarım sabitleri ─────────────────────────────────────
+  /// Hafif kırık beyaz / krem zemin — buketin renklerini patlatır.
+  static const _bgColor    = Color(0xFFF9F9F7);
+  /// Yumuşak antrasit — saf siyah değil, ılık kahve tonu.
+  static const _textColor  = Color(0xFF4A3F35);
+
+  static const _sidePad    = 80.0;   // Yatay kenar boşluğu
+  static const _topPad     = 80.0;   // Buket üst boşluğu
+  static const _textGap    = 52.0;   // Buket alt kenarı → metin
+
+  // ─────────────────────────────────────────────────────────
+  // PORTRE 4:5 — WhatsApp / Galeri / Genel Paylaşım
+  // ─────────────────────────────────────────────────────────
+
+  /// 1080 × 1350 portre — kare/WhatsApp paylaşımı için.
   static Future<Uint8List?> renderSquare({
     required RenderRepaintBoundary boundary,
     required Bouquet bouquet,
     double pixelRatio = 3.0,
   }) async {
     try {
-      // 1) Mevcut sahneyi yakala
       final captured = await boundary.toImage(pixelRatio: pixelRatio);
-      final w = captured.width.toDouble();
-      final srcH = captured.height.toDouble();
-      const watermarkH = 160.0;
-      final totalH = srcH + watermarkH;
-
-      // 2) Yeni canvas — orijinal görsel + watermark
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-
-      // Cream zemin
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, w, totalH),
-        Paint()..color = _creamBg,
+      return _renderCanvas(
+        captured: captured,
+        cW: _portraitW,
+        cH: _portraitH,
+        bouquetFraction: 0.62, // Canvas yüksekliğinin %62'si buket için
       );
-
-      // Yakalanan görseli üste yerleştir
-      canvas.drawImage(captured, Offset.zero, Paint());
-
-      // Watermark şerifi (alt 160px)
-      _drawWatermarkStrip(
-        canvas,
-        Rect.fromLTWH(0, srcH, w, watermarkH),
-        bouquet,
-      );
-
-      // 3) PNG'e çevir
-      final pic = recorder.endRecording();
-      final outImage = await pic.toImage(w.toInt(), totalH.toInt());
-      final bytes =
-          await outImage.toByteData(format: ui.ImageByteFormat.png);
-      return bytes?.buffer.asUint8List();
     } catch (_) {
       return null;
     }
   }
 
-  /// 1080×1920 dikey hikaye formatı: gradient zemin + buket + isim + stat
-  /// kart + Bloomix watermark.
+  // ─────────────────────────────────────────────────────────
+  // 9:16 HİKAYE — Instagram Story
+  // ─────────────────────────────────────────────────────────
+
+  /// 1080 × 1920 dikey hikaye — Instagram Story için.
   static Future<Uint8List?> renderStory({
     required RenderRepaintBoundary boundary,
     required Bouquet bouquet,
@@ -73,269 +67,91 @@ class BouquetExporter {
   }) async {
     try {
       final captured = await boundary.toImage(pixelRatio: pixelRatio);
-      const w = 1080.0;
-      const h = 1920.0;
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-
-      // 1) Pembe gradient zemin (Bloomix marka)
-      final bgRect = Rect.fromLTWH(0, 0, w, h);
-      final bgGradient = ui.Gradient.linear(
-        const Offset(0, 0),
-        const Offset(w, h),
-        [
-          const Color(0xFFFFE3EF),
-          const Color(0xFFFFB8D4),
-          const Color(0xFFFF74B3),
-        ],
-        [0.0, 0.5, 1.0],
+      return _renderCanvas(
+        captured: captured,
+        cW: _storyW,
+        cH: _storyH,
+        bouquetFraction: 0.58, // 9:16'da %58 buket için (daha uzun canvas)
       );
-      canvas.drawRect(bgRect, Paint()..shader = bgGradient);
-
-      // Üst sol dekoratif çiçek emoji'si
-      _paintText(
-        canvas,
-        '🌸',
-        x: 80,
-        y: 120,
-        fontSize: 72,
-        textAlign: TextAlign.left,
-      );
-      _paintText(
-        canvas,
-        '✨',
-        x: w - 110,
-        y: 140,
-        fontSize: 56,
-        textAlign: TextAlign.left,
-      );
-
-      // 2) Bloomix marka başlık (üstte)
-      _paintText(
-        canvas,
-        'Bloomix',
-        x: w / 2,
-        y: 220,
-        fontSize: 96,
-        color: Colors.white,
-        fontFamily: 'DM Serif Display',
-        fontWeight: FontWeight.w400,
-        textAlign: TextAlign.center,
-        maxWidth: w - 80,
-      );
-
-      // 3) Buket adı (başlık altında)
-      _paintText(
-        canvas,
-        '"${bouquet.name}"',
-        x: w / 2,
-        y: 360,
-        fontSize: 42,
-        color: Colors.white,
-        fontWeight: FontWeight.w600,
-        textAlign: TextAlign.center,
-        maxWidth: w - 120,
-      );
-
-      // 4) Beyaz "kart" zemin (buket kapsayıcı)
-      const cardPad = 60.0;
-      const cardTop = 460.0;
-      const cardH = 1000.0;
-      final cardRect = RRect.fromRectAndRadius(
-        const Rect.fromLTWH(cardPad, cardTop, w - 2 * cardPad, cardH),
-        const Radius.circular(48),
-      );
-      canvas.drawRRect(
-        cardRect,
-        Paint()..color = Colors.white.withOpacity(0.96),
-      );
-      // Hafif drop shadow
-      canvas.drawRRect(
-        cardRect.shift(const Offset(0, 6)),
-        Paint()
-          ..color = Colors.black.withOpacity(0.10)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16)
-          ..blendMode = BlendMode.dstATop,
-      );
-
-      // 5) Buket görseli (kart içinde merkezleyerek scale)
-      final cardInnerW = w - 2 * cardPad - 80;
-      final cardInnerH = cardH - 80 - 200; // alt boşluk: stat'ler için
-      final imgW = captured.width.toDouble();
-      final imgH = captured.height.toDouble();
-      final scale = (cardInnerW / imgW < cardInnerH / imgH)
-          ? cardInnerW / imgW
-          : cardInnerH / imgH;
-      final drawW = imgW * scale;
-      final drawH = imgH * scale;
-      final imgX = (w - drawW) / 2;
-      final imgY = cardTop + 40;
-      canvas.save();
-      canvas.translate(imgX, imgY);
-      canvas.scale(scale);
-      canvas.drawImage(captured, Offset.zero, Paint());
-      canvas.restore();
-
-      // 6) Stat kartı (alt — kart içinde)
-      final statY = cardTop + cardH - 180;
-      _drawStatBar(canvas,
-          rect: Rect.fromLTWH(cardPad + 40, statY, w - 2 * (cardPad + 40), 140),
-          bouquet: bouquet);
-
-      // 7) Alt watermark — "Bloomix ile yapıldı"
-      _paintText(
-        canvas,
-        '🌸  Bloomix ile yapıldı',
-        x: w / 2,
-        y: h - 130,
-        fontSize: 38,
-        color: Colors.white,
-        fontWeight: FontWeight.w700,
-        textAlign: TextAlign.center,
-      );
-      _paintText(
-        canvas,
-        'Sen de tasarla',
-        x: w / 2,
-        y: h - 80,
-        fontSize: 28,
-        color: Colors.white.withOpacity(0.85),
-        textAlign: TextAlign.center,
-      );
-
-      // 8) PNG
-      final pic = recorder.endRecording();
-      final outImage = await pic.toImage(w.toInt(), h.toInt());
-      final bytes =
-          await outImage.toByteData(format: ui.ImageByteFormat.png);
-      return bytes?.buffer.asUint8List();
     } catch (_) {
       return null;
     }
   }
 
-  // ── Yardımcı painter'lar ──────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // ORTAK RENDER MOTORU
+  // ─────────────────────────────────────────────────────────
 
-  /// Kare PNG'in altına yapıştırılan watermark şerifi.
-  static void _drawWatermarkStrip(
-      Canvas canvas, Rect rect, Bouquet bouquet) {
-    // Açık pembe zemin
+  static Future<Uint8List?> _renderCanvas({
+    required ui.Image captured,
+    required double cW,   // canvas genişlik
+    required double cH,   // canvas yükseklik
+    required double bouquetFraction,
+  }) async {
+    // ── Buket boyutlandırma ───────────────────────────────
+    final maxBouquetW = cW - 2 * _sidePad;
+    final maxBouquetH = cH * bouquetFraction;
+
+    final srcW = captured.width.toDouble();
+    final srcH = captured.height.toDouble();
+    final scale = (srcW / maxBouquetW > srcH / maxBouquetH)
+        ? maxBouquetW / srcW   // genişliğe göre sınır
+        : maxBouquetH / srcH;  // yüksekliğe göre sınır
+
+    final drawW = srcW * scale;
+    final drawH = srcH * scale;
+
+    // ── Pozisyonlama ─────────────────────────────────────
+    // Buket yatayda tam orta; dikeyİ: tüm blok (buket+boşluk+metin)
+    // canvas'a dikey olarak ortalanır.
+    final fontSize  = cW * 0.028; // küçük, zarif
+    final bouquetX  = (cW - drawW) / 2;
+    final bouquetY  = ((cH - drawH) / 2 - cH * 0.04).clamp(_topPad, cH.toDouble());
+    final textY     = cH * 0.925; // canvas'ın en altına yakın
+
+    // ── Canvas ───────────────────────────────────────────
+    final recorder  = ui.PictureRecorder();
+    final canvas    = Canvas(recorder);
+
+    // Krem zemin
     canvas.drawRect(
-      rect,
-      Paint()..color = const Color(0xFFFFE3EF).withOpacity(0.7),
-    );
-    // Üst kenar ince çizgi
-    canvas.drawLine(
-      rect.topLeft,
-      rect.topRight,
-      Paint()
-        ..color = _watermarkColor.withOpacity(0.15)
-        ..strokeWidth = 1.5,
+      Rect.fromLTWH(0, 0, cW, cH),
+      Paint()..color = _bgColor,
     );
 
-    // Sol: 🌸 Bloomix
+    // Buket (en-boy oranı korunarak ölçeklendirilmiş)
+    canvas.save();
+    canvas.translate(bouquetX, bouquetY);
+    canvas.scale(scale);
+    canvas.drawImage(captured, Offset.zero, Paint());
+    canvas.restore();
+
+    // "Bloomix ile oluşturuldu" — Dancing Script
     _paintText(
       canvas,
-      '🌸',
-      x: rect.left + 36,
-      y: rect.top + 38,
-      fontSize: 44,
-      textAlign: TextAlign.left,
-    );
-    _paintText(
-      canvas,
-      'Bloomix',
-      x: rect.left + 100,
-      y: rect.top + 30,
-      fontSize: 48,
-      color: _watermarkColor,
-      fontFamily: 'DM Serif Display',
-      textAlign: TextAlign.left,
-    );
-    _paintText(
-      canvas,
-      'ile yapıldı',
-      x: rect.left + 100,
-      y: rect.top + 92,
-      fontSize: 22,
-      color: _textMid,
-      textAlign: TextAlign.left,
+      'Bloomix ile oluşturuldu',
+      x: cW / 2,
+      y: textY,
+      fontSize: fontSize,
+      color: const Color(0xFF9E8F85),
+      fontFamily: 'Dancing Script',
+      fontWeight: FontWeight.w400,
+      fontStyle: FontStyle.italic,
+      textAlign: TextAlign.center,
+      maxWidth: cW * 0.70,
     );
 
-    // Sağ: brick + price özeti
-    _paintText(
-      canvas,
-      '${bouquet.legoCount} brick',
-      x: rect.right - 36,
-      y: rect.top + 32,
-      fontSize: 26,
-      color: _textDark,
-      fontWeight: FontWeight.w800,
-      textAlign: TextAlign.right,
-    );
-    _paintText(
-      canvas,
-      '₺${bouquet.price.toStringAsFixed(0)}',
-      x: rect.right - 36,
-      y: rect.top + 76,
-      fontSize: 36,
-      color: _watermarkColor,
-      fontWeight: FontWeight.w800,
-      textAlign: TextAlign.right,
-    );
+    // ── PNG'e çevir ───────────────────────────────────────
+    final pic      = recorder.endRecording();
+    final outImage = await pic.toImage(cW.toInt(), cH.toInt());
+    final bytes    = await outImage.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
   }
 
-  /// Story formatındaki üç-stat şeridi.
-  static void _drawStatBar(Canvas canvas,
-      {required Rect rect, required Bouquet bouquet}) {
-    final stats = [
-      ('${bouquet.legoCount}', 'brick'),
-      ('${bouquet.flowers.length}', 'çiçek'),
-      ('₺${bouquet.price.toStringAsFixed(0)}', bouquet.size.label),
-    ];
-    final cellW = rect.width / stats.length;
-    for (int i = 0; i < stats.length; i++) {
-      final cx = rect.left + cellW * (i + 0.5);
-      _paintText(
-        canvas,
-        stats[i].$1,
-        x: cx,
-        y: rect.top + 18,
-        fontSize: 56,
-        color: _watermarkColor,
-        fontWeight: FontWeight.w800,
-        textAlign: TextAlign.center,
-      );
-      _paintText(
-        canvas,
-        stats[i].$2,
-        x: cx,
-        y: rect.top + 92,
-        fontSize: 26,
-        color: _textMid,
-        fontWeight: FontWeight.w600,
-        textAlign: TextAlign.center,
-      );
-      // Dikey ayırıcı çizgi
-      if (i < stats.length - 1) {
-        final lineX = rect.left + cellW * (i + 1);
-        canvas.drawLine(
-          Offset(lineX, rect.top + 24),
-          Offset(lineX, rect.bottom - 24),
-          Paint()
-            ..color = _textMid.withOpacity(0.15)
-            ..strokeWidth = 1.0,
-        );
-      }
-    }
-  }
+  // ─────────────────────────────────────────────────────────
+  // YARDIMCI: Canvas metin çizici
+  // ─────────────────────────────────────────────────────────
 
-  /// TextPainter wrapper — canvas üzerine font/renk/hizalama ile metin yazar.
-  /// (x, y) referans hizalamaya göre yorumlanır:
-  ///   - left: (x = sol kenar, y = üst kenar)
-  ///   - center: (x = orta, y = üst kenar)
-  ///   - right: (x = sağ kenar, y = üst kenar)
   static void _paintText(
     Canvas canvas,
     String text, {
@@ -344,6 +160,7 @@ class BouquetExporter {
     required double fontSize,
     Color color = const Color(0xFF1C1410),
     FontWeight fontWeight = FontWeight.w500,
+    FontStyle fontStyle = FontStyle.normal,
     String? fontFamily,
     TextAlign textAlign = TextAlign.left,
     double? maxWidth,
@@ -355,6 +172,7 @@ class BouquetExporter {
           color: color,
           fontSize: fontSize,
           fontWeight: fontWeight,
+          fontStyle: fontStyle,
           fontFamily: fontFamily,
           height: 1.0,
         ),
@@ -363,12 +181,11 @@ class BouquetExporter {
       textAlign: textAlign,
     )..layout(maxWidth: maxWidth ?? double.infinity);
 
-    double drawX = x;
-    if (textAlign == TextAlign.center) {
-      drawX = x - tp.width / 2;
-    } else if (textAlign == TextAlign.right) {
-      drawX = x - tp.width;
-    }
+    final drawX = switch (textAlign) {
+      TextAlign.center => x - tp.width / 2,
+      TextAlign.right  => x - tp.width,
+      _                => x,
+    };
     tp.paint(canvas, Offset(drawX, y));
   }
 }

@@ -269,13 +269,7 @@ class CollectionDetailScreen extends StatelessWidget {
 
   void _previewSaved(
       BuildContext context, AppProvider prov, SavedBouquet s) {
-    // Saved'i editöre yükleyip BouquetBuilder'a git
-    prov.loadTemplateBouquet(
-      name: s.bouquet.name,
-      flowers: s.bouquet.flowers,
-      ribbon: s.bouquet.ribbon,
-      size: s.bouquet.size,
-    );
+    prov.loadBouquetForEdit(s.bouquet);
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()),

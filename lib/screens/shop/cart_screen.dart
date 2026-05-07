@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../models/models.dart';
 import '../../widgets/widgets.dart';
+import '../bouquet/bouquet_builder_screen.dart';
 import 'checkout_screen.dart';
 
 /// Sepet — eklenen tüm buketleri listeler, adet/silme ile düzenler,
@@ -47,6 +48,15 @@ class CartScreen extends StatelessWidget {
                 onDecrement: () =>
                     prov.updateCartQty(items[i].id, items[i].qty - 1),
                 onRemove: () => prov.removeFromCart(items[i].id),
+                onTap: () {
+                  prov.loadBouquetForEdit(items[i].bouquet);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const BouquetBuilderScreen(),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -128,17 +138,21 @@ class CartScreen extends StatelessWidget {
 class _CartTile extends StatelessWidget {
   final CartItem item;
   final VoidCallback onIncrement, onDecrement, onRemove;
+  final VoidCallback? onTap;
   const _CartTile({
     required this.item,
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final b = item.bouquet;
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -147,15 +161,30 @@ class _CartTile extends StatelessWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Mini görsel (placeholder)
-        Container(
+        // Mini buket önizleme
+        SizedBox(
           width: 64,
           height: 64,
-          decoration: BoxDecoration(
-            color: b.ribbon.color.withOpacity(0.25),
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
+            child: Container(
+              color: b.ribbon.color.withOpacity(0.10),
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox(
+                  width: 180,
+                  height: 180,
+                  child: BouquetPreview(
+                    flowers: b.flowers,
+                    placed: b.placedFlowers.isNotEmpty ? b.placedFlowers : null,
+                    ribbon: b.ribbon,
+                    template: b.template,
+                    height: 180,
+                  ),
+                ),
+              ),
+            ),
           ),
-          child: const Center(child: Text('💐', style: TextStyle(fontSize: 32))),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -229,6 +258,7 @@ class _CartTile extends StatelessWidget {
           ]),
         ),
       ]),
+    ),
     );
   }
 }

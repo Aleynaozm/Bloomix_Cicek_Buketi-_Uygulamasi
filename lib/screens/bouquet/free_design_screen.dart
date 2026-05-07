@@ -17,8 +17,11 @@ enum _PanelTab { layers, templates }
 /// • Tap & drag ile canvas'a çiçek ekle
 /// • Seçili çiçeği taşı, döndür, büyüt, ön/arka layer
 /// • 🔥 otomatik buket
+/// • [initialPlaced] verilirse düzenleme modunda açılır (hydrated state).
 class FreeDesignScreen extends StatefulWidget {
-  const FreeDesignScreen({super.key});
+  final List<PlacedFlowerData>? initialPlaced;
+
+  const FreeDesignScreen({super.key, this.initialPlaced});
 
   @override
   State<FreeDesignScreen> createState() => _FreeDesignScreenState();
@@ -30,6 +33,15 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
   bool _panelOpen = false;
   _PanelTab _activeTab = _PanelTab.layers;
   int _idCounter = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialPlaced != null && widget.initialPlaced!.isNotEmpty) {
+      _placed.addAll(widget.initialPlaced!);
+      _idCounter = _placed.length;
+    }
+  }
 
   String _nextId() => 'pf_${_idCounter++}';
 
@@ -162,10 +174,74 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
     });
   }
 
-  // ── Tamamla → BouquetBuilder ──────────────────────────────
-  void _confirm() {
+  // ── Tamamla → İsim dialogu → BouquetBuilder ──────────────
+  Future<void> _confirm() async {
     if (_placed.isEmpty) return;
-    context.read<AppProvider>().setPlacedFlowers(_placed, name: 'Tasarımım');
+    final prov = context.read<AppProvider>();
+
+    // Düzenleme modunda mevcut ismi başlangıç değeri olarak kullan
+    final existingName = prov.isFreeDesign && prov.inputName.isNotEmpty
+        ? prov.inputName
+        : '';
+    final nameCtrl = TextEditingController(text: existingName);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Tasarımına İsim Ver',
+            style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark)),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          maxLength: 30,
+          textCapitalization: TextCapitalization.sentences,
+          style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
+          decoration: InputDecoration(
+            hintText: 'ör. Anneme Özel, Bahar Buketi...',
+            hintStyle: GoogleFonts.poppins(
+                fontSize: 12, color: AppColors.textLight),
+            counterStyle: GoogleFonts.poppins(
+                fontSize: 10, color: AppColors.textLight),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: AppColors.rose, width: 1.5),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Vazgeç',
+                style: GoogleFonts.poppins(
+                    color: AppColors.textMid, fontWeight: FontWeight.w600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Devam',
+                style: GoogleFonts.poppins(
+                    color: AppColors.rose, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final name = nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim();
+    prov.setPlacedFlowers(_placed, name: name);
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()),

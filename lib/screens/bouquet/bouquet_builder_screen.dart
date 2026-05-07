@@ -9,6 +9,7 @@ import '../../widgets/widgets.dart';
 import '../../widgets/save_to_collection_sheet.dart';
 import '../../widgets/share_sheet.dart';
 import '../shop/cart_screen.dart';
+import 'free_design_screen.dart';
 
 // ── Ek ücret sabitleri ─────────────────────────────────────
 const double _kGiftNoteFee = 50.0;
@@ -191,17 +192,35 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           title: Text(
-            isFreeDesign
-                ? 'Tasarımım'
-                : (prov.inputName.isEmpty ? 'Buketim' : prov.inputName),
+            prov.inputName.isEmpty ? 'Buketim' : prov.inputName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.dmSerifDisplay(
-              fontSize: 28,
+              fontSize: 20,
               color: AppColors.rose,
-              letterSpacing: isFreeDesign ? 0.5 : 4,
+              letterSpacing: 0.5,
             ),
           ),
           centerTitle: true,
           actions: [
+            // ✏ Düzenle
+            IconButton(
+              tooltip: 'Tasarımı Düzenle',
+              icon: const Icon(Icons.edit_rounded, color: AppColors.rose),
+              onPressed: bouquet == null
+                  ? null
+                  : () {
+                      prov.loadBouquetForEdit(bouquet);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FreeDesignScreen(
+                            initialPlaced: prov.placedFlowers.toList(),
+                          ),
+                        ),
+                      );
+                    },
+            ),
             // ❤ Favori
             IconButton(
               tooltip: isFavorite ? 'Favorilerden çıkar' : 'Favorile',
@@ -318,7 +337,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  // Alfabe bilgisi
+                  // Alfabe bilgisi — yalnızca alfabe akışında göster
                   if (!isFreeDesign && prov.flowers.isNotEmpty) ...[
                     Center(
                       child: FittedBox(
@@ -379,18 +398,6 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                     const SizedBox(height: 8),
                   ],
 
-                  if (isFreeDesign && placed.isNotEmpty) ...[
-                    Center(
-                      child: Text(
-                        '${placed.length} çiçek · ${prov.ribbon.label} kurdele',
-                        style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: AppColors.textMid,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
 
                   // ── Hediye Notu ──────────────────────────────
                   _GiftNoteSection(controller: _noteCtrl),

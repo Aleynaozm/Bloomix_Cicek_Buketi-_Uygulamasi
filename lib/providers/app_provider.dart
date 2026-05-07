@@ -180,31 +180,21 @@ class AppProvider extends ChangeNotifier {
     _flowers = getFlowersForName(name);
     _isFreeDesign = false;
     _placedFlowers = _generateDomePositions(_flowers);
-    _currentBouquet = _flowers.isEmpty
-        ? null
-        : Bouquet(
-            id: 'b_${DateTime.now().millisecondsSinceEpoch}',
-            name: _inputName,
-            flowers: _flowers,
-            ribbon: _ribbon,
-            size: _size,
-          );
+    _rebuildBouquetWithNewId();
     notifyListeners();
   }
 
   /// Serbest tasarla akışı: kullanıcının placed flower verilerini direkt kullan.
-  void setPlacedFlowers(List<PlacedFlowerData> placed,
-      {String name = 'Tasarımım'}) {
+  void setPlacedFlowers(List<PlacedFlowerData> placed, {String? name}) {
     _placedFlowers = List.from(placed);
     _flowers = placed.map((p) => p.flower).toList();
-    _inputName = name;
+    final now = DateTime.now();
+    _inputName = name ?? 'Tasarım ${now.day.toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}';
     _isFreeDesign = true;
     _rebuildBouquet();
   }
 
   /// Özel Gün şablon buketini editöre yükler (Kişiselleştir akışı).
-  /// Çiçek listesinden otomatik dome pozisyonu üretilir; kullanıcı
-  /// BouquetBuilder + Customize'da kurdele/boyut değiştirebilir.
   void loadTemplateBouquet({
     required String name,
     required List<Flower> flowers,
@@ -217,15 +207,25 @@ class AppProvider extends ChangeNotifier {
     _inputName = name;
     _isFreeDesign = false;
     _placedFlowers = _generateDomePositions(_flowers);
-    _currentBouquet = _flowers.isEmpty
-        ? null
-        : Bouquet(
-            id: 'b_${DateTime.now().millisecondsSinceEpoch}',
-            name: name,
-            flowers: _flowers,
-            ribbon: _ribbon,
-            size: _size,
-          );
+    _rebuildBouquetWithNewId();
+    notifyListeners();
+  }
+
+  /// Kaydedilmiş/sepetteki buketi düzenleme moduna yükler.
+  /// FreeDesignScreen + BouquetBuilderScreen için tam state restore eder.
+  void loadBouquetForEdit(Bouquet b) {
+    _inputName = b.name;
+    _flowers = List.from(b.flowers);
+    _ribbon = b.ribbon;
+    _size = b.size;
+    _template = b.template;
+    // Kayıtlı/sepetteki tasarımlar her zaman serbest tasarım modunda açılır
+    // → alfabe harf çipleri gösterilmez.
+    _isFreeDesign = true;
+    _placedFlowers = b.placedFlowers.isNotEmpty
+        ? List.from(b.placedFlowers)
+        : _generateDomePositions(b.flowers);
+    _currentBouquet = b.copyWith(placedFlowers: _placedFlowers);
     notifyListeners();
   }
 
@@ -275,9 +275,24 @@ class AppProvider extends ChangeNotifier {
         ribbon: _ribbon,
         size: _size,
         template: _template,
+        placedFlowers: List.from(_placedFlowers),
       );
     }
     notifyListeners();
+  }
+
+  void _rebuildBouquetWithNewId() {
+    if (_flowers.isNotEmpty) {
+      _currentBouquet = Bouquet(
+        id: 'b_${DateTime.now().millisecondsSinceEpoch}',
+        name: _inputName,
+        flowers: _flowers,
+        ribbon: _ribbon,
+        size: _size,
+        template: _template,
+        placedFlowers: List.from(_placedFlowers),
+      );
+    }
   }
 
   // ── Saved + Collections ─────────────────────────────────────────────────

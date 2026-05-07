@@ -71,9 +71,23 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.googleusercontent.apps.540154424800-jggniav15br88p1cbkdaglcbccfn755j/string>
+          <string>com.googleusercontent.apps.540154424800-jggniav15br88p1cbkdaglcbccfn755j</string>
         </array>
       </dict>
     </array>
+    <!-- url_launcher: Hangi URL şemalarının sorgulanabileceği (canLaunchUrl) -->
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>whatsapp</string>
+        <string>instagram</string>
+        <string>instagram-stories</string>
+        <string>sms</string>
+        <string>mailto</string>
+    </array>
+    <!-- gal: Fotoğraf Galerisi izin açıklamaları -->
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Bloomix buket tasarımlarınızı galerinize kaydetmek için izin gerekiyor.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Bloomix buket tasarımlarınızı galerinize kaydetmek için izin gerekiyor.</string>
 </dict>
 </plist>

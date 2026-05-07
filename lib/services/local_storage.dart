@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/painting.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../data/flower_data.dart';
@@ -25,6 +26,15 @@ class LocalStorage {
         'ribbon': b.ribbon.index,
         'size': b.size.index,
         'giftMessage': b.giftMessage,
+        'template': b.template.index,
+        'placedFlowers': b.placedFlowers.map((p) => {
+          'id': p.id,
+          'letter': p.flower.letter,
+          'x': p.position.dx,
+          'y': p.position.dy,
+          'scale': p.scale,
+          'rotation': p.rotation,
+        }).toList(),
       };
 
   static Bouquet? _bouquetFromJson(Map<String, dynamic> j) {
@@ -33,6 +43,22 @@ class LocalStorage {
           .map((l) => flowerAlphabet[l])
           .whereType<Flower>()
           .toList();
+      final templateIdx = (j['template'] as int?) ?? 0;
+      final placedJson = (j['placedFlowers'] as List?) ?? [];
+      final placed = placedJson.map((pj) {
+        final flower = flowerAlphabet[pj['letter'] as String];
+        if (flower == null) return null;
+        return PlacedFlowerData(
+          id: pj['id'] as String? ?? 'pf_0',
+          flower: flower,
+          position: Offset(
+            (pj['x'] as num).toDouble(),
+            (pj['y'] as num).toDouble(),
+          ),
+          scale: (pj['scale'] as num).toDouble(),
+          rotation: (pj['rotation'] as num).toDouble(),
+        );
+      }).whereType<PlacedFlowerData>().toList();
       return Bouquet(
         id: j['id'] as String,
         name: j['name'] as String,
@@ -40,6 +66,8 @@ class LocalStorage {
         ribbon: RibbonStyle.values[j['ribbon'] as int],
         size: BouquetSize.values[j['size'] as int],
         giftMessage: j['giftMessage'] as String?,
+        template: BouquetTemplate.values[templateIdx.clamp(0, BouquetTemplate.values.length - 1)],
+        placedFlowers: placed,
       );
     } catch (_) {
       return null;

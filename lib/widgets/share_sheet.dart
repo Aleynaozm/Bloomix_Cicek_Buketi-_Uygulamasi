@@ -1,24 +1,25 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:gal/gal.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
-import 'bouquet_exporter.dart';
+import '../services/gorsel_export_service.dart';
+import 'social_share_button_grid.dart';
 
-/// Paylaşım/export sheet — 3 mod:
-/// • PNG İndir → galeriye watermark'lı kare PNG kaydet
-/// • Hikaye Paylaş → 9:16 hikaye formatında paylaş (Instagram/WhatsApp)
-/// • Hızlı Paylaş → kare PNG'i tüm uygulamalarla paylaş
-class ShareSheet extends StatefulWidget {
-  /// Buket önizlemesinin RepaintBoundary'sinin GlobalKey'i.
+/// Modern paylaşım paneli (Bottom Sheet).
+///
+/// Açmak için:
+/// ```dart
+/// ShareSheetWidget.show(context, previewKey: _key, bouquet: bouquet);
+/// ```
+///
+/// Eski [ShareSheet] adıyla uyumluluk için typedef aşağıda tanımlıdır.
+class ShareSheetWidget extends StatefulWidget {
   final GlobalKey previewKey;
   final Bouquet bouquet;
 
-  const ShareSheet._({
+  const ShareSheetWidget._({
     required this.previewKey,
     required this.bouquet,
   });
@@ -32,163 +33,125 @@ class ShareSheet extends StatefulWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) =>
-          ShareSheet._(previewKey: previewKey, bouquet: bouquet),
-    );
-  }
-
-  @override
-  State<ShareSheet> createState() => _ShareSheetState();
-}
-
-class _ShareSheetState extends State<ShareSheet> {
-  bool _busy = false;
-  String _busyMsg = '';
-
-  RenderRepaintBoundary? get _boundary {
-    final ctx = widget.previewKey.currentContext;
-    return ctx?.findRenderObject() as RenderRepaintBoundary?;
-  }
-
-  void _toast(String msg, {bool error = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: error ? Colors.red.shade600 : AppColors.rose,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14)),
-        content: Row(children: [
-          Icon(error ? Icons.error_outline : Icons.check_circle_outline_rounded,
-              color: Colors.white),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(msg,
-                style: GoogleFonts.poppins(
-                    color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-        ]),
-        duration: const Duration(seconds: 3),
+      builder: (_) => ShareSheetWidget._(
+        previewKey: previewKey,
+        bouquet: bouquet,
       ),
     );
   }
 
-  Future<void> _saveToGallery() async {
+  @override
+  State<ShareSheetWidget> createState() => _ShareSheetWidgetState();
+}
+
+// ── Eski isimle uyumluluk ─────────────────────────────────────
+typedef ShareSheet = ShareSheetWidget;
+
+class _ShareSheetWidgetState extends State<ShareSheetWidget> {
+  bool _rendering = false;
+
+  RenderRepaintBoundary? get _boundary =>
+      widget.previewKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+
+  // ── Paylaşım Ana Akışı ────────────────────────────────────
+
+  Future<void> _handleTap(ShareTarget target) async {
+    if (_rendering) return;
+
     final boundary = _boundary;
     if (boundary == null) {
       _toast('Önizleme yakalanamadı', error: true);
       return;
     }
-    setState(() {
-      _busy = true;
-      _busyMsg = 'PNG hazırlanıyor...';
-    });
+
+    if (target == ShareTarget.gallery) {
+      await _doGallerySave(boundary);
+      return;
+    }
+
+    await _doShare(target, boundary);
+  }
+
+  /// Galeri kayıt: tam busy (render + kayıt birlikte)
+  Future<void> _doGallerySave(RenderRepaintBoundary boundary) async {
+    setState(() => _rendering = true);
     try {
-      final bytes = await BouquetExporter.renderSquare(
-        boundary: boundary,
-        bouquet: widget.bouquet,
-      );
-      if (bytes == null) {
-        _toast('PNG oluşturulamadı', error: true);
-        return;
-      }
-      // Galeri izni iste
-      final hasAccess = await Gal.hasAccess(toAlbum: true);
-      if (!hasAccess) {
-        final granted = await Gal.requestAccess(toAlbum: true);
-        if (!granted) {
-          _toast('Galeri izni reddedildi', error: true);
-          return;
-        }
-      }
-      await Gal.putImageBytes(bytes,
-          name: 'bloomix_${widget.bouquet.id}', album: 'Bloomix');
+      final result =
+          await GorselExportService.saveToGallery(boundary, widget.bouquet);
       if (!mounted) return;
-      Navigator.pop(context);
-      _toast('Galeriye kaydedildi 📥');
-    } on GalException catch (e) {
-      _toast('Hata: ${e.type.message}', error: true);
-    } catch (e) {
-      _toast('Beklenmeyen hata oluştu', error: true);
+      if (result == ExportResult.success) {
+        Navigator.pop(context);
+        _toast('Galeriye kaydedildi 📥');
+      } else {
+        _toast(GorselExportService.messageFor(result), error: true);
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _rendering = false);
     }
   }
 
-  Future<void> _shareStory() async {
-    final boundary = _boundary;
-    if (boundary == null) {
-      _toast('Önizleme yakalanamadı', error: true);
+  /// Paylaşım: render sırasında loading, sonra sistem paneli
+  Future<void> _doShare(
+      ShareTarget target, RenderRepaintBoundary boundary) async {
+    // 1) Render (loading göster)
+    setState(() => _rendering = true);
+    Uint8List? bytes;
+    try {
+      bytes = target == ShareTarget.instagramStory
+          ? await GorselExportService.storyBytes(boundary, widget.bouquet)
+          : await GorselExportService.squareBytes(boundary, widget.bouquet);
+    } finally {
+      if (mounted) setState(() => _rendering = false);
+    }
+
+    if (bytes == null) {
+      _toast('Görsel oluşturulamadı. Tekrar deneyin.', error: true);
       return;
     }
-    setState(() {
-      _busy = true;
-      _busyMsg = 'Hikaye hazırlanıyor...';
-    });
+
+    // 2) Paylaş (loading yok — sistem share sheet devralır)
     try {
-      final bytes = await BouquetExporter.renderStory(
-        boundary: boundary,
-        bouquet: widget.bouquet,
-      );
-      if (bytes == null) {
-        _toast('Hikaye oluşturulamadı', error: true);
-        return;
-      }
-      final dir = await getTemporaryDirectory();
-      final file = File(
-          '${dir.path}/bloomix_story_${widget.bouquet.id}_${DateTime.now().millisecondsSinceEpoch}.png');
-      await file.writeAsBytes(bytes);
-      if (!mounted) return;
-      Navigator.pop(context);
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'image/png')],
-        text:
-            '🌸 Bloomix tasarımım: ${widget.bouquet.name} · ${widget.bouquet.legoCount} brick',
-        subject: 'Bloomix Buket',
-      );
-    } catch (e) {
-      _toast('Hikaye paylaşılamadı', error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      await GorselExportService.shareBytes(bytes, target, widget.bouquet);
+    } catch (_) {
+      if (mounted) _toast('Paylaşım başarısız. Tekrar deneyin.', error: true);
     }
   }
 
-  Future<void> _quickShare() async {
-    final boundary = _boundary;
-    if (boundary == null) {
-      _toast('Önizleme yakalanamadı', error: true);
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _busyMsg = 'PNG hazırlanıyor...';
-    });
-    try {
-      final bytes = await BouquetExporter.renderSquare(
-        boundary: boundary,
-        bouquet: widget.bouquet,
-      );
-      if (bytes == null) {
-        _toast('PNG oluşturulamadı', error: true);
-        return;
-      }
-      final dir = await getTemporaryDirectory();
-      final file = File(
-          '${dir.path}/bloomix_${widget.bouquet.id}_${DateTime.now().millisecondsSinceEpoch}.png');
-      await file.writeAsBytes(bytes);
-      if (!mounted) return;
-      Navigator.pop(context);
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'image/png')],
-        text:
-            '🌸 Bloomix tasarımım: ${widget.bouquet.name}\n${widget.bouquet.legoCount} brick · ${widget.bouquet.size.label} · ₺${widget.bouquet.price.toStringAsFixed(0)}\n\nBloomix ile sen de tasarla.',
-      );
-    } catch (e) {
-      _toast('Paylaşılamadı', error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  // ── Toast ────────────────────────────────────────────────
+
+  void _toast(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      backgroundColor: error ? Colors.red.shade600 : AppColors.rose,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14)),
+      content: Row(children: [
+        Icon(
+          error
+              ? Icons.error_outline_rounded
+              : Icons.check_circle_outline_rounded,
+          color: Colors.white,
+          size: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            msg,
+            style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13),
+          ),
+        ),
+      ]),
+      duration: const Duration(seconds: 3),
+    ));
   }
+
+  // ── UI ───────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -197,224 +160,137 @@ class _ShareSheetState extends State<ShareSheet> {
         color: AppColors.cream,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(height: 12),
-          Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 18),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.rose.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.ios_share_rounded,
-                    color: AppColors.rose),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Tasarımı Paylaş',
-                          style: GoogleFonts.poppins(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textDark)),
-                      Text('Bloomix watermark otomatik eklenir',
-                          style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: AppColors.textMid)),
-                    ]),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 18),
+      child: Stack(
+        children: [
+          // ── Ana içerik ──────────────────────────────────
+          SafeArea(
+            top: false,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(height: 12),
 
-          // ── 3 ana eylem ─────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(children: [
-              _ActionTile(
-                icon: Icons.download_rounded,
-                title: 'PNG İndir',
-                subtitle: 'Galerine kaydet',
-                gradient: const [
-                  Color(0xFFFFB8D4),
-                  Color(0xFFFF74B3),
-                ],
-                onTap: _busy ? null : _saveToGallery,
-              ),
-              const SizedBox(height: 10),
-              _ActionTile(
-                icon: Icons.auto_stories_rounded,
-                title: 'Hikaye Paylaş',
-                subtitle: '9:16 marka tasarımı',
-                gradient: const [
-                  Color(0xFFE8C8E0),
-                  Color(0xFFB060B0),
-                ],
-                badge: 'Önerilen',
-                onTap: _busy ? null : _shareStory,
-              ),
-              const SizedBox(height: 10),
-              _ActionTile(
-                icon: Icons.send_rounded,
-                title: 'Hızlı Paylaş',
-                subtitle: 'WhatsApp, mesaj, e-posta...',
-                gradient: const [
-                  Color(0xFFC5D9F0),
-                  Color(0xFF3070D0),
-                ],
-                onTap: _busy ? null : _quickShare,
-              ),
-            ]),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Loading durumu ─────────────────────────────────
-          if (_busy) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(children: [
-                const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.rose)),
-                const SizedBox(width: 12),
-                Text(_busyMsg,
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, color: AppColors.textMid)),
-              ]),
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          // ── Watermark info ─────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.rose.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(children: [
-                const Icon(Icons.info_outline_rounded,
-                    size: 16, color: AppColors.rose),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Tüm görsellere "🌸 Bloomix ile yapıldı" markası eklenir.',
-                    style: GoogleFonts.poppins(
-                        fontSize: 11, color: AppColors.textMid, height: 1.4),
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ]),
-            ),
+              ),
+              const SizedBox(height: 20),
+
+              // Başlık
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(children: [
+                  Text(
+                    'Tasarımı Paylaş',
+                    style: GoogleFonts.poppins(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Bloomix ile tasarladığın buketi sevdiklerinle paylaş',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.5,
+                      color: AppColors.textMid,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 26),
+
+              // Sosyal medya ızgarası
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SocialShareButtonGrid(
+                  onTap: _handleTap,
+                  disabled: _rendering,
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // Watermark bilgisi
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Text(
+                  '🌸  Paylaşılan tüm görsellere "Bloomix ile yapıldı" watermarkı eklenir',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10.5,
+                    color: AppColors.textLight,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ]),
           ),
-        ]),
+
+          // ── Loading Overlay ─────────────────────────────
+          if (_rendering)
+            const Positioned.fill(
+              child: ClipRRect(
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(28)),
+                child: _LoadingOverlay(),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _ActionTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final List<Color> gradient;
-  final String? badge;
-  final VoidCallback? onTap;
-
-  const _ActionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.gradient,
-    this.onTap,
-    this.badge,
-  });
+// ── Loading Overlay ───────────────────────────────────────────
+class _LoadingOverlay extends StatelessWidget {
+  const _LoadingOverlay();
 
   @override
   Widget build(BuildContext context) {
-    final disabled = onTap == null;
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Opacity(
-        opacity: disabled ? 0.5 : 1.0,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: gradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
+    return Container(
+      color: AppColors.cream.withValues(alpha: 0.92),
+      child: Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Bloomix spinner
+          const SizedBox(
+            width: 64,
+            height: 64,
+            child: Stack(alignment: Alignment.center, children: [
+              CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.rose),
               ),
-              child: Icon(icon, color: Colors.white, size: 24),
+              Text(
+                '🌸',
+                style: TextStyle(fontSize: 26),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Görselin hazırlanıyor...',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Text(title,
-                          style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textDark)),
-                      if (badge != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.rose.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(badge!,
-                              style: GoogleFonts.poppins(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.rose)),
-                        ),
-                      ],
-                    ]),
-                    const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: AppColors.textMid)),
-                  ]),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Buket export ediliyor',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: AppColors.textMid,
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textLight),
-          ]),
-        ),
+          ),
+        ]),
       ),
     );
   }

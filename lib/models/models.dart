@@ -160,6 +160,8 @@ class Bouquet {
   final String? giftMessage;
   final bool isFavorite;
   final BouquetTemplate template;
+  /// Canvas'taki çiçek konumları — kaydedilip geri yüklenebilir.
+  final List<PlacedFlowerData> placedFlowers;
 
   const Bouquet({
     required this.id,
@@ -170,6 +172,7 @@ class Bouquet {
     this.giftMessage,
     this.isFavorite = false,
     this.template = BouquetTemplate.classic,
+    this.placedFlowers = const [],
   });
 
   /// Çiçek sayısına göre LEGO brick adedi (~65 brick/çiçek).
@@ -189,6 +192,7 @@ class Bouquet {
     String? giftMessage,
     bool? isFavorite,
     BouquetTemplate? template,
+    List<PlacedFlowerData>? placedFlowers,
   }) =>
       Bouquet(
         id: id,
@@ -199,6 +203,7 @@ class Bouquet {
         giftMessage: giftMessage ?? this.giftMessage,
         isFavorite: isFavorite ?? this.isFavorite,
         template: template ?? this.template,
+        placedFlowers: placedFlowers ?? this.placedFlowers,
       );
 }
 
