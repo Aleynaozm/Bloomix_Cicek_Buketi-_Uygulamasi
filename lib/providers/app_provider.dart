@@ -14,6 +14,13 @@ class AppProvider extends ChangeNotifier {
 
   // ── Auth (Supabase tarafından yönetiliyor) ────────────────────────────────
   AppUser? _user;
+  String? _localPhotoPath;
+  String? get localPhotoPath => _localPhotoPath;
+  void setLocalPhotoPath(String path) {
+    _localPhotoPath = path;
+    notifyListeners();
+  }
+
   StreamSubscription<sb.AuthState>? _authSub;
 
   AppUser? get user => _user;
@@ -50,8 +57,6 @@ class AppProvider extends ChangeNotifier {
     final saved = await LocalStorage.loadSaved(uid);
     final cols = await LocalStorage.loadCollections(uid);
     final cart = await LocalStorage.loadCart(uid);
-    final addrs = await LocalStorage.loadAddresses(uid);
-    final orders = await LocalStorage.loadOrders(uid);
 
     _saved
       ..clear()
@@ -82,6 +87,12 @@ class AppProvider extends ChangeNotifier {
       ..clear()
       ..addAll(cart);
 
+    final orders = await LocalStorage.loadOrders(uid);
+    _orders
+      ..clear()
+      ..addAll(orders);
+
+    final addrs = await LocalStorage.loadAddresses(uid);
     _addresses
       ..clear()
       ..addAll(addrs.map((a) => AppAddress(
@@ -93,10 +104,6 @@ class AppProvider extends ChangeNotifier {
             isDefault: a.isDefault,
           )));
 
-    _orders
-      ..clear()
-      ..addAll(orders);
-
     notifyListeners();
   }
 
@@ -107,8 +114,8 @@ class AppProvider extends ChangeNotifier {
       LocalStorage.saveSaved(uid, List.from(_saved)),
       LocalStorage.saveCollections(uid, List.from(_collections)),
       LocalStorage.saveCart(uid, List.from(_cart)),
-      LocalStorage.saveAddresses(uid, List.from(_addresses)),
       LocalStorage.saveOrders(uid, List.from(_orders)),
+      LocalStorage.saveAddresses(uid, List.from(_addresses)),
     ]).catchError((_) {});
   }
 
@@ -138,17 +145,10 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await SupabaseService.updateProfile(fullName: name);
-    } catch (_) {}
+    } catch (_) {
+      // Hata olursa lokal state'i geri almıyoruz; sonraki refresh düzeltir.
+    }
   }
-
-  /// Yerel fotoğraf path'ini güncelle (image_picker'dan gelen dosya yolu).
-  void setLocalPhotoPath(String path) {
-    _localPhotoPath = path;
-    notifyListeners();
-  }
-
-  String? _localPhotoPath;
-  String? get localPhotoPath => _localPhotoPath;
 
   Future<void> logout() async {
     _loadedForUserId = null;
@@ -228,22 +228,6 @@ class AppProvider extends ChangeNotifier {
     _rebuildBouquet();
   }
 
-  /// Mevcut bir buketi düzenleme moduna yükler.
-  /// Serbest tasarım ise placed pozisyonları korur, değilse dome pozisyonu üretir.
-  void loadBouquetForEdit(Bouquet bouquet) {
-    _flowers = List.from(bouquet.flowers);
-    _ribbon = bouquet.ribbon;
-    _size = bouquet.size;
-    _inputName = bouquet.name;
-    _template = bouquet.template;
-    _isFreeDesign = bouquet.placedFlowers.isNotEmpty;
-    _placedFlowers = bouquet.placedFlowers.isNotEmpty
-        ? List.from(bouquet.placedFlowers)
-        : _generateDomePositions(_flowers);
-    _currentBouquet = bouquet;
-    notifyListeners();
-  }
-
   /// Özel Gün şablon buketini editöre yükler (Kişiselleştir akışı).
   /// Çiçek listesinden otomatik dome pozisyonu üretilir; kullanıcı
   /// BouquetBuilder + Customize'da kurdele/boyut değiştirebilir.
@@ -268,6 +252,23 @@ class AppProvider extends ChangeNotifier {
             ribbon: _ribbon,
             size: _size,
           );
+    notifyListeners();
+  }
+
+  /// Kayıtlı bir buketi editöre yükler (düzenleme akışı).
+  void loadBouquetForEdit(Bouquet bouquet) {
+    _flowers = List.from(bouquet.flowers);
+    _ribbon = bouquet.ribbon;
+    _size = bouquet.size;
+    _inputName = bouquet.name;
+    if (bouquet.placedFlowers.isNotEmpty) {
+      _placedFlowers = List.from(bouquet.placedFlowers);
+      _isFreeDesign = true;
+    } else {
+      _placedFlowers = _generateDomePositions(_flowers);
+      _isFreeDesign = false;
+    }
+    _currentBouquet = bouquet;
     notifyListeners();
   }
 
@@ -637,7 +638,6 @@ class AppProvider extends ChangeNotifier {
     }
     _addresses.add(a);
     notifyListeners();
-    _persist();
   }
 
   void updateAddress(AppAddress updated) {
@@ -651,13 +651,11 @@ class AppProvider extends ChangeNotifier {
     final idx = _addresses.indexWhere((a) => a.id == updated.id);
     if (idx >= 0) _addresses[idx] = updated;
     notifyListeners();
-    _persist();
   }
 
   void removeAddress(String id) {
     _addresses.removeWhere((a) => a.id == id);
     notifyListeners();
-    _persist();
   }
 
   // ── Orders ────────────────────────────────────────────────────────────────
@@ -698,6 +696,7 @@ class AppProvider extends ChangeNotifier {
     );
     _orders.add(order);
     _cart.clear();
+    _persist();
     _notifications.insert(
       0,
       AppNotification(
@@ -709,7 +708,6 @@ class AppProvider extends ChangeNotifier {
       ),
     );
     notifyListeners();
-    _persist();
     return order;
   }
 }

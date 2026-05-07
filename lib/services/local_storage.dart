@@ -17,8 +17,8 @@ class LocalStorage {
   static String _kSaved(String uid) => 'saved_$uid';
   static String _kCollections(String uid) => 'collections_$uid';
   static String _kCart(String uid) => 'cart_$uid';
-  static String _kAddresses(String uid) => 'addresses_$uid';
   static String _kOrders(String uid) => 'orders_$uid';
+  static String _kAddresses(String uid) => 'addresses_$uid';
 
   // ── Bouquet serialize/deserialize ─────────────────────────
   static Map<String, dynamic> _bouquetToJson(Bouquet b) => {
@@ -209,54 +209,6 @@ class LocalStorage {
     }
   }
 
-  // ── Addresses ─────────────────────────────────────────────
-  static Future<void> saveAddresses(
-      String userId, List<dynamic> addresses) async {
-    await init();
-    final list = addresses
-        .map((a) => {
-              'id': a.id,
-              'title': a.title,
-              'city': a.city,
-              'district': a.district,
-              'fullAddress': a.fullAddress,
-              'isDefault': a.isDefault,
-            })
-        .toList();
-    await _prefs!.setString(_kAddresses(userId), jsonEncode(list));
-  }
-
-  static Future<List<dynamic>> loadAddresses(String userId) async {
-    await init();
-    final raw = _prefs!.getString(_kAddresses(userId));
-    if (raw == null) return [];
-    try {
-      final list = jsonDecode(raw) as List;
-      return list
-          .map((j) => _AddressData(
-                id: j['id'] as String,
-                title: j['title'] as String,
-                city: j['city'] as String,
-                district: j['district'] as String,
-                fullAddress: j['fullAddress'] as String,
-                isDefault: j['isDefault'] as bool? ?? false,
-              ))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  // ── Temizle (logout) ──────────────────────────────────────
-  static Future<void> clear(String userId) async {
-    await init();
-    await _prefs!.remove(_kSaved(userId));
-    await _prefs!.remove(_kCollections(userId));
-    await _prefs!.remove(_kCart(userId));
-    await _prefs!.remove(_kAddresses(userId));
-    await _prefs!.remove(_kOrders(userId));
-  }
-
   // ── Orders ────────────────────────────────────────────────
   static Future<void> saveOrders(String userId, List<Order> orders) async {
     await init();
@@ -330,6 +282,54 @@ class LocalStorage {
     } catch (_) {
       return [];
     }
+  }
+
+  // ── Addresses ─────────────────────────────────────────────
+  static Future<void> saveAddresses(
+      String userId, List<dynamic> addresses) async {
+    await init();
+    final list = addresses
+        .map((a) => {
+              'id': a.id,
+              'title': a.title,
+              'city': a.city,
+              'district': a.district,
+              'fullAddress': a.fullAddress,
+              'isDefault': a.isDefault,
+            })
+        .toList();
+    await _prefs!.setString(_kAddresses(userId), jsonEncode(list));
+  }
+
+  static Future<List<_AddressData>> loadAddresses(String userId) async {
+    await init();
+    final raw = _prefs!.getString(_kAddresses(userId));
+    if (raw == null) return [];
+    try {
+      final list = jsonDecode(raw) as List;
+      return list
+          .map((j) => _AddressData(
+                id: j['id'] as String,
+                title: j['title'] as String,
+                city: j['city'] as String,
+                district: j['district'] as String,
+                fullAddress: j['fullAddress'] as String,
+                isDefault: j['isDefault'] as bool? ?? false,
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ── Temizle (logout) ──────────────────────────────────────
+  static Future<void> clear(String userId) async {
+    await init();
+    await _prefs!.remove(_kSaved(userId));
+    await _prefs!.remove(_kCollections(userId));
+    await _prefs!.remove(_kCart(userId));
+    await _prefs!.remove(_kOrders(userId));
+    await _prefs!.remove(_kAddresses(userId));
   }
 }
 

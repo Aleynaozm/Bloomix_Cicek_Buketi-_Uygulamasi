@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import 'home_screen.dart';
 import 'explore_screen.dart';
@@ -9,8 +8,6 @@ import 'collections_screen.dart';
 import '../profile/profile_screen.dart';
 import '../shop/cart_screen.dart';
 
-/// Ana iskelet — 5 sekmeli alt navigasyon.
-/// Sepet ikonunda kırmızı badge cart count'unu gösterir.
 class MainShell extends StatefulWidget {
   final VoidCallback? onShowOnboarding;
   const MainShell({super.key, this.onShowOnboarding});
@@ -37,130 +34,134 @@ class _MainShellState extends State<MainShell> {
       const CartScreen(),
       const ProfileScreen(),
     ];
+
     return Scaffold(
       body: IndexedStack(index: _index, children: screens),
-      bottomNavigationBar: _BottomNav(
-        index: _index,
-        onTap: _switchTab,
-      ),
+      bottomNavigationBar: _BottomNav(index: _index, onTap: _switchTab),
     );
   }
 }
 
-/// Beyaz, ince border'lı, 5 ikon, Sepet'te badge.
 class _BottomNav extends StatelessWidget {
   final int index;
   final ValueChanged<int> onTap;
   const _BottomNav({required this.index, required this.onTap});
 
+  static const _items = [
+    (icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Anasayfa'),
+    (icon: Icons.search_outlined, activeIcon: Icons.search_rounded, label: 'Keşfet'),
+    (icon: Icons.collections_bookmark_outlined, activeIcon: Icons.collections_bookmark_rounded, label: 'Koleksiyon'),
+    (icon: Icons.shopping_bag_outlined, activeIcon: Icons.shopping_bag_rounded, label: 'Sepet'),
+    (icon: Icons.person_outline, activeIcon: Icons.person_rounded, label: 'Profil'),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppProvider>(builder: (ctx, prov, _) {
-      final cartCount = prov.cartCount;
-      final items = <_NavSpec>[
-        const _NavSpec(Icons.home_outlined, Icons.home_rounded, 'Anasayfa'),
-        const _NavSpec(Icons.search_outlined, Icons.search_rounded, 'Keşfet'),
-        const _NavSpec(Icons.collections_bookmark_outlined,
-            Icons.collections_bookmark_rounded, 'Koleksiyon'),
-        _NavSpec(Icons.shopping_bag_outlined, Icons.shopping_bag_rounded,
-            'Sepet', badge: cartCount > 0 ? cartCount : null),
-        const _NavSpec(Icons.person_outline, Icons.person_rounded, 'Profil'),
-      ];
+    final cartCount = context.watch<AppProvider>().cartCount;
 
-      return Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          border: Border(
-              top: BorderSide(color: AppColors.border, width: 0.5)),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Color(0xFFEDE0E4), width: 0.8),
         ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: items.asMap().entries.map((e) {
-                return _NavTile(
-                  spec: e.value,
-                  selected: e.key == index,
-                  onTap: () => onTap(e.key),
-                );
-              }).toList(),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 12,
+            offset: Offset(0, -3),
           ),
-        ),
-      );
-    });
-  }
-}
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: _items.asMap().entries.map((e) {
+              final i = e.key;
+              final item = e.value;
+              final selected = i == index;
+              final badge = i == 3 && cartCount > 0 ? cartCount : 0;
 
-class _NavSpec {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final int? badge;
-  const _NavSpec(this.icon, this.activeIcon, this.label, {this.badge});
-}
-
-class _NavTile extends StatelessWidget {
-  final _NavSpec spec;
-  final bool selected;
-  final VoidCallback onTap;
-  const _NavTile(
-      {required this.spec, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? AppColors.rose : AppColors.textLight;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(selected ? spec.activeIcon : spec.icon,
-                    color: color, size: 24),
-                if (spec.badge != null)
-                  Positioned(
-                    right: -8,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      constraints:
-                          const BoxConstraints(minWidth: 16, minHeight: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.rose,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.white, width: 1.5),
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onTap(i),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOutCubic,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? const Color(0xFFFF4D7E).withOpacity(0.12)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              selected ? item.activeIcon : item.icon,
+                              size: 24,
+                              color: selected
+                                  ? const Color(0xFFFF4D7E)
+                                  : const Color(0xFFBBAFB2),
+                            ),
+                          ),
+                          if (badge > 0)
+                            Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 1),
+                                constraints: const BoxConstraints(
+                                    minWidth: 16, minHeight: 16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF4D7E),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: Colors.white, width: 1.5),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    badge > 99 ? '99+' : '$badge',
+                                    style: GoogleFonts.urbanist(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        height: 1.1,
+                                        fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      child: Center(
-                        child: Text(
-                          spec.badge! > 99 ? '99+' : '${spec.badge}',
-                          style: GoogleFonts.poppins(
-                              color: AppColors.white,
-                              fontSize: 9,
-                              height: 1.1,
-                              fontWeight: FontWeight.w700),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.label,
+                        style: GoogleFonts.urbanist(
+                          fontSize: 10.5,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: selected
+                              ? const Color(0xFFFF4D7E)
+                              : const Color(0xFFBBAFB2),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-              ],
-            ),
-            const SizedBox(height: 3),
-            Text(
-              spec.label,
-              style: GoogleFonts.poppins(
-                fontSize: 10.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: color,
-              ),
-            ),
-          ],
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );

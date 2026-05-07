@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/widgets.dart';
-import '../../data/turkey_cities.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Adreslerim
@@ -202,31 +201,16 @@ class _AddressFormSheet extends StatefulWidget {
 class _AddressFormSheetState extends State<_AddressFormSheet> {
   final _form = GlobalKey<FormState>();
   late final _title = TextEditingController(text: widget.existing?.title ?? '');
+  late final _city = TextEditingController(text: widget.existing?.city ?? '');
+  late final _district = TextEditingController(text: widget.existing?.district ?? '');
   late final _full = TextEditingController(text: widget.existing?.fullAddress ?? '');
   late bool _isDefault = widget.existing?.isDefault ?? false;
-  String? _selectedCity;
-  String? _selectedDistrict;
-
-  final List<String> _sortedCities = turkeyCities.keys.toList()..sort();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.existing != null) {
-      _selectedCity = widget.existing!.city;
-      _selectedDistrict = widget.existing!.district;
-    }
-  }
 
   @override
   void dispose() {
-    _title.dispose();
-    _full.dispose();
+    _title.dispose(); _city.dispose(); _district.dispose(); _full.dispose();
     super.dispose();
   }
-
-  List<String> get _districts =>
-      _selectedCity != null ? (turkeyCities[_selectedCity] ?? []) : [];
 
   void _save() {
     if (!_form.currentState!.validate()) return;
@@ -234,8 +218,8 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
     final addr = AppAddress(
       id: widget.existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: _title.text.trim(),
-      city: _selectedCity!,
-      district: _selectedDistrict!,
+      city: _city.text.trim(),
+      district: _district.text.trim(),
       fullAddress: _full.text.trim(),
       isDefault: _isDefault,
     );
@@ -269,67 +253,50 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                   fontWeight: FontWeight.w800,
                   color: AppColors.textDark)),
           const SizedBox(height: 20),
-
-          // Başlık
           TextFormField(
             controller: _title,
             decoration: const InputDecoration(
                 labelText: 'Adres Başlığı (Ev, İş...)',
                 prefixIcon: Icon(Icons.label_outline, size: 20)),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Başlık gerekli' : null,
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Başlık gerekli' : null,
           ),
           const SizedBox(height: 12),
-
-          // Şehir dropdown
-          DropdownButtonFormField<String>(
-            value: _selectedCity,
-            decoration: const InputDecoration(
-                labelText: 'Şehir',
-                prefixIcon: Icon(Icons.location_city_outlined, size: 20)),
-            hint: const Text('Şehir seç'),
-            isExpanded: true,
-            items: _sortedCities
-                .map((c) => DropdownMenuItem(value: c, child: Text(c, style: GoogleFonts.poppins(fontSize: 14))))
-                .toList(),
-            onChanged: (v) => setState(() {
-              _selectedCity = v;
-              _selectedDistrict = null; // şehir değişince ilçe sıfırlanır
-            }),
-            validator: (v) => v == null ? 'Şehir seçiniz' : null,
-          ),
-          const SizedBox(height: 12),
-
-          // İlçe dropdown
-          DropdownButtonFormField<String>(
-            value: _selectedDistrict,
-            decoration: const InputDecoration(
-                labelText: 'İlçe',
-                prefixIcon: Icon(Icons.map_outlined, size: 20)),
-            hint: Text(
-              _selectedCity == null ? 'Önce şehir seçin' : 'İlçe seç',
-              style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textLight),
+          Row(children: [
+            Expanded(
+              child: TextFormField(
+                controller: _city,
+                decoration: const InputDecoration(
+                    labelText: 'Şehir',
+                    prefixIcon: Icon(Icons.location_city_outlined, size: 20)),
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Şehir gerekli' : null,
+              ),
             ),
-            isExpanded: true,
-            items: _districts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d, style: GoogleFonts.poppins(fontSize: 14))))
-                .toList(),
-            onChanged: _selectedCity == null ? null : (v) => setState(() => _selectedDistrict = v),
-            validator: (v) => v == null ? 'İlçe seçiniz' : null,
-          ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: _district,
+                decoration: const InputDecoration(
+                    labelText: 'İlçe',
+                    prefixIcon: Icon(Icons.map_outlined, size: 20)),
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'İlçe gerekli' : null,
+              ),
+            ),
+          ]),
           const SizedBox(height: 12),
-
-          // Açık adres
           TextFormField(
             controller: _full,
             maxLines: 2,
             decoration: const InputDecoration(
-                labelText: 'Açık Adres (Mahalle, Sokak, No...)',
+                labelText: 'Açık Adres',
                 prefixIcon: Icon(Icons.home_outlined, size: 20),
                 alignLabelWithHint: true),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Adres gerekli' : null,
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Adres gerekli' : null,
           ),
           const SizedBox(height: 8),
-
           SwitchListTile(
             title: Text('Varsayılan adres olarak ayarla',
                 style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textDark)),
