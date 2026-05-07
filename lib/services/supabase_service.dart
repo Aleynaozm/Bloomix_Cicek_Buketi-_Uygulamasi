@@ -21,16 +21,12 @@ class SupabaseService {
     defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltdWhyZW9zY2VpeG1uZWZ3ZHF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MzMxOTAsImV4cCI6MjA5MzIwOTE5MH0.vY-itExVeI9qwTbwNYJ0vE0b19MopNQwHFOSsGFH4go',
   );
 
-  // Google native sign-in için iOS client ID (Google Cloud Console > Credentials)
-  // iOS'ta Info.plist URL scheme'i de güncellenmeli.
+  // Google Sign-In iOS OAuth client ID — Info.plist GIDClientID ile eşleşmeli.
+  // Reverse client ID (URL scheme): com.googleusercontent.apps.{id}
+  // Client ID: {id}.apps.googleusercontent.com
   static const String _googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
-    defaultValue: '',
-  );
-  // Android için web client ID (serverClientId olarak kullanılır)
-  static const String _googleWebClientId = String.fromEnvironment(
-    'GOOGLE_WEB_CLIENT_ID',
-    defaultValue: '',
+    defaultValue: '540154424800-jggniav15br88p1cbkdaglcbccfn755j.apps.googleusercontent.com',
   );
 
   static SupabaseClient get client => Supabase.instance.client;
@@ -92,28 +88,37 @@ class SupabaseService {
 
   /// Google ile giriş — native flow (google_sign_in + signInWithIdToken).
   ///
-  /// İlk önce platform için clientId tanımlı olmalı (yukarıda).
-  /// Setup adımları SETUP_AUTH.md dosyasında.
   static Future<AuthResponse> signInWithGoogle() async {
+    // Önceki oturumu temizle — state karışmaması için
     final googleSignIn = GoogleSignIn(
-      clientId: _googleIosClientId.isEmpty ? null : _googleIosClientId,
-      serverClientId: _googleWebClientId.isEmpty ? null : _googleWebClientId,
+      clientId: _googleIosClientId,
     );
+    await googleSignIn.signOut();
+
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
+      // Kullanıcı popup'ı kapattı — sessizce çık
       throw const AuthException('Google girişi iptal edildi.');
     }
+
     final googleAuth = await googleUser.authentication;
-    final idToken = googleAuth.idToken;
+    final idToken    = googleAuth.idToken;
     final accessToken = googleAuth.accessToken;
+
     if (idToken == null) {
-      throw const AuthException('Google ID token alınamadı.');
+      throw const AuthException(
+        'Google ID token alınamadı. '
+        'Supabase Dashboard → Auth → Providers → Google\'da '
+        'iOS Client ID\'nin eklendiğinden emin ol.',
+      );
     }
+
     final res = await auth.signInWithIdToken(
       provider: OAuthProvider.google,
       idToken: idToken,
       accessToken: accessToken,
     );
+
     final user = res.user;
     if (user != null) {
       await _upsertProfile(

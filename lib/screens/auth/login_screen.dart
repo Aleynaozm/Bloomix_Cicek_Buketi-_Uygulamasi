@@ -51,6 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
       await SupabaseService.signInWithGoogle();
       _popToRoot();
     } on AuthException catch (e) {
+      // İptal durumunda (kullanıcı popup'ı kapattı) sessizce çık
+      if (e.message.contains('iptal')) return;
       _showError(_friendlyError(e));
     } catch (e) {
       _showError('Google girişi başarısız: $e');

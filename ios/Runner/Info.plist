@@ -66,6 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Google Sign-In: iOS OAuth Client ID -->
+	<key>GIDClientID</key>
+	<string>540154424800-jggniav15br88p1cbkdaglcbccfn755j.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
     <array>
       <dict>
