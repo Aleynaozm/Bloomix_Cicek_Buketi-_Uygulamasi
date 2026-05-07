@@ -18,16 +18,19 @@ import 'social_share_button_grid.dart';
 class ShareSheetWidget extends StatefulWidget {
   final GlobalKey previewKey;
   final Bouquet bouquet;
+  final String? displayName;
 
   const ShareSheetWidget._({
     required this.previewKey,
     required this.bouquet,
+    this.displayName,
   });
 
   static Future<void> show(
     BuildContext context, {
     required GlobalKey previewKey,
     required Bouquet bouquet,
+    String? displayName,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -36,6 +39,7 @@ class ShareSheetWidget extends StatefulWidget {
       builder: (_) => ShareSheetWidget._(
         previewKey: previewKey,
         bouquet: bouquet,
+        displayName: displayName,
       ),
     );
   }
@@ -77,8 +81,11 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
   Future<void> _doGallerySave(RenderRepaintBoundary boundary) async {
     setState(() => _rendering = true);
     try {
-      final result =
-          await GorselExportService.saveToGallery(boundary, widget.bouquet);
+      final result = await GorselExportService.saveToGallery(
+        boundary,
+        widget.bouquet,
+        displayName: widget.displayName,
+      );
       if (!mounted) return;
       if (result == ExportResult.success) {
         Navigator.pop(context);
@@ -99,8 +106,10 @@ class _ShareSheetWidgetState extends State<ShareSheetWidget> {
     Uint8List? bytes;
     try {
       bytes = target == ShareTarget.instagramStory
-          ? await GorselExportService.storyBytes(boundary, widget.bouquet)
-          : await GorselExportService.squareBytes(boundary, widget.bouquet);
+          ? await GorselExportService.storyBytes(boundary, widget.bouquet,
+              displayName: widget.displayName)
+          : await GorselExportService.squareBytes(boundary, widget.bouquet,
+              displayName: widget.displayName);
     } finally {
       if (mounted) setState(() => _rendering = false);
     }

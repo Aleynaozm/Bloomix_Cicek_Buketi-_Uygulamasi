@@ -39,25 +39,29 @@ class GorselExportService {
 
   // ── Render ────────────────────────────────────────────────
 
-  /// Kare PNG bytes'ı (watermark şeridiyle).
+  /// Kare PNG bytes'ı (isim + watermark dahil).
   static Future<Uint8List?> squareBytes(
     RenderRepaintBoundary boundary,
-    Bouquet bouquet,
-  ) =>
+    Bouquet bouquet, {
+    String? displayName,
+  }) =>
       BouquetExporter.renderSquare(
         boundary: boundary,
         bouquet: bouquet,
+        displayName: displayName ?? bouquet.name,
         pixelRatio: _pixelRatio,
       );
 
   /// 9:16 hikaye PNG bytes'ı.
   static Future<Uint8List?> storyBytes(
     RenderRepaintBoundary boundary,
-    Bouquet bouquet,
-  ) =>
+    Bouquet bouquet, {
+    String? displayName,
+  }) =>
       BouquetExporter.renderStory(
         boundary: boundary,
         bouquet: bouquet,
+        displayName: displayName ?? bouquet.name,
         pixelRatio: _pixelRatio,
       );
 
@@ -65,9 +69,11 @@ class GorselExportService {
 
   static Future<ExportResult> saveToGallery(
     RenderRepaintBoundary boundary,
-    Bouquet bouquet,
-  ) async {
-    final bytes = await squareBytes(boundary, bouquet);
+    Bouquet bouquet, {
+    String? displayName,
+  }) async {
+    final bytes = await squareBytes(boundary, bouquet,
+        displayName: displayName);
     if (bytes == null) return ExportResult.renderFailed;
 
     if (kIsWeb) {

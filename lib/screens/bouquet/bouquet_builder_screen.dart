@@ -10,14 +10,17 @@ import '../../widgets/save_to_collection_sheet.dart';
 import '../../widgets/share_sheet.dart';
 import '../shop/cart_screen.dart';
 import 'free_design_screen.dart';
+import 'name_input_screen.dart';
 
 // ── Ek ücret sabitleri ─────────────────────────────────────
 const double _kGiftNoteFee = 50.0;
 const double _kNftMintFee  = 299.0;
 
 /// Tasarımım — buket önizleme + siparişe hazırlık ekranı.
+/// [cartItem] verilirse sepetteki önceki not/tarih/NFT verileri geri yüklenir.
 class BouquetBuilderScreen extends StatefulWidget {
-  const BouquetBuilderScreen({super.key});
+  final CartItem? cartItem;
+  const BouquetBuilderScreen({super.key, this.cartItem});
 
   @override
   State<BouquetBuilderScreen> createState() => _BouquetBuilderScreenState();
@@ -30,7 +33,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   DateTime? _deliveryDate;
   bool _isNftActive   = false;
   bool _isMinting     = false;
-  String? _mintHash;            // Mock blockchain hash
+  String? _mintHash;
 
   // ── Fiyat hesapları ───────────────────────────────────────
   bool get _hasNote => _noteCtrl.text.trim().isNotEmpty;
@@ -41,6 +44,14 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   @override
   void initState() {
     super.initState();
+    // Sepetten düzenleme modunda önceki verileri geri yükle
+    final ci = widget.cartItem;
+    if (ci != null) {
+      if (ci.giftNote?.isNotEmpty == true) _noteCtrl.text = ci.giftNote!;
+      _deliveryDate = ci.deliveryDate;
+      _isNftActive  = ci.isNft;
+      _mintHash     = ci.nftHash;
+    }
     _noteCtrl.addListener(() => setState(() {}));
   }
 
@@ -151,8 +162,12 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   }
 
   // ── Paylaş ─────────────────────────────────────────────────
-  void _share(Bouquet b) =>
-      ShareSheet.show(context, previewKey: _previewKey, bouquet: b);
+  void _share(Bouquet b) => ShareSheet.show(
+        context,
+        previewKey: _previewKey,
+        bouquet: b,
+        displayName: b.name,
+      );
 
   void _toast(String msg, {Color? bg}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(

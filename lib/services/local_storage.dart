@@ -164,6 +164,12 @@ class LocalStorage {
               'qty': it.qty,
               'addedAt': it.addedAt.toIso8601String(),
               'isLego': it.isLego,
+              'giftNote': it.giftNote,
+              'deliveryDate': it.deliveryDate?.toIso8601String(),
+              'isNft': it.isNft,
+              'giftNoteFee': it.giftNoteFee,
+              'nftMintFee': it.nftMintFee,
+              'nftHash': it.nftHash,
             })
         .toList();
     await _prefs!.setString(_kCart(userId), jsonEncode(list));
@@ -179,12 +185,19 @@ class LocalStorage {
           .map((j) {
             final b = _bouquetFromJson(j['bouquet'] as Map<String, dynamic>);
             if (b == null) return null;
+            final deliveryRaw = j['deliveryDate'] as String?;
             return CartItem(
               id: j['id'] as String,
               bouquet: b,
               qty: j['qty'] as int,
               addedAt: DateTime.parse(j['addedAt'] as String),
               isLego: j['isLego'] as bool? ?? false,
+              giftNote: j['giftNote'] as String?,
+              deliveryDate: deliveryRaw != null ? DateTime.parse(deliveryRaw) : null,
+              isNft: j['isNft'] as bool? ?? false,
+              giftNoteFee: (j['giftNoteFee'] as num?)?.toDouble() ?? 0.0,
+              nftMintFee: (j['nftMintFee'] as num?)?.toDouble() ?? 0.0,
+              nftHash: j['nftHash'] as String?,
             );
           })
           .whereType<CartItem>()

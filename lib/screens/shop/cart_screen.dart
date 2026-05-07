@@ -53,7 +53,7 @@ class CartScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const BouquetBuilderScreen(),
+                      builder: (_) => BouquetBuilderScreen(cartItem: items[i]),
                     ),
                   );
                 },
@@ -242,6 +242,13 @@ class _CartTile extends StatelessWidget {
                       color: const Color(0xFF3070D0),
                       fontWeight: FontWeight.w600)),
             ],
+            // ── Ek hizmetler (not / tarih / NFT) ─────────────
+            if (item.giftNote?.isNotEmpty == true ||
+                item.deliveryDate != null ||
+                item.isNft) ...[
+              const SizedBox(height: 6),
+              _CartExtras(item: item),
+            ],
             const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               // Qty stepper
@@ -249,16 +256,116 @@ class _CartTile extends StatelessWidget {
                   qty: item.qty,
                   onInc: onIncrement,
                   onDec: onDecrement),
-              Text('₺${item.lineTotal.toStringAsFixed(0)}',
-                  style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textDark)),
+              // Fiyat: buket + ekstra ücretler
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                if (item.extraFees > 0)
+                  Text('+₺${item.extraFees.toStringAsFixed(0)} ek',
+                      style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          color: AppColors.rose,
+                          fontWeight: FontWeight.w600)),
+                Text('₺${item.lineTotal.toStringAsFixed(0)}',
+                    style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark)),
+              ]),
             ]),
           ]),
         ),
       ]),
     ),
+    );
+  }
+}
+
+// ── Sepet kartı ek hizmet satırları ───────────────────────────
+class _CartExtras extends StatelessWidget {
+  final CartItem item;
+  const _CartExtras({required this.item});
+
+  static String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.rose.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.rose.withValues(alpha: 0.15)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (item.giftNote?.isNotEmpty == true)
+          _ExtraRow(
+            icon: Icons.mail_outline_rounded,
+            label: '"${item.giftNote!}"',
+            badge: item.giftNoteFee > 0
+                ? '+₺${item.giftNoteFee.toStringAsFixed(0)}'
+                : null,
+          ),
+        if (item.deliveryDate != null)
+          _ExtraRow(
+            icon: Icons.calendar_month_rounded,
+            label: 'Teslimat: ${_fmtDate(item.deliveryDate!)}',
+            color: const Color(0xFF3070D0),
+          ),
+        if (item.isNft)
+          _ExtraRow(
+            icon: Icons.diamond_outlined,
+            label: item.nftHash != null
+                ? 'NFT · ${item.nftHash!}'
+                : 'NFT mint',
+            badge: item.nftMintFee > 0
+                ? '+₺${item.nftMintFee.toStringAsFixed(0)}'
+                : null,
+            color: const Color(0xFF6B48FF),
+          ),
+      ]),
+    );
+  }
+}
+
+class _ExtraRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? badge;
+  final Color color;
+  const _ExtraRow({
+    required this.icon,
+    required this.label,
+    this.badge,
+    this.color = AppColors.rose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w500),
+          ),
+        ),
+        if (badge != null) ...[
+          const SizedBox(width: 4),
+          Text(badge!,
+              style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: AppColors.rose,
+                  fontWeight: FontWeight.w700)),
+        ],
+      ]),
     );
   }
 }
