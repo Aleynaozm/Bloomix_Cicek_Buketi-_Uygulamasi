@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
-import '../../models/models.dart';
 import '../../data/special_day_data.dart';
 import 'special_bouquet_detail_screen.dart';
 
@@ -14,7 +13,6 @@ class CategoryDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bouquets = bouquetsForCategory(category);
-    final colors = category.colors;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -22,38 +20,6 @@ class CategoryDetailScreen extends StatelessWidget {
         title: Text('${category.emoji}  ${category.title}'),
       ),
       body: ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: [
-        // ── Kategori hero başlık ─────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [colors.first.withOpacity(0.45), colors.first],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Row(children: [
-            Text(category.emoji, style: const TextStyle(fontSize: 40)),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${bouquets.length} hazır tasarım',
-                    style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: colors.last)),
-                const SizedBox(height: 2),
-                Text(
-                    'Tek tıkla sepete ekle veya kişiselleştir.',
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, color: colors.last.withOpacity(0.75))),
-              ]),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 20),
-
         // ── Buket grid'i ─────────────────────────────────────────
         GridView.count(
           crossAxisCount: 2,
