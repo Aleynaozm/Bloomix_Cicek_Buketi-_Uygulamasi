@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
+import '../../widgets/widgets.dart';
 import 'collection_detail_screen.dart';
+import 'purchased_bouquets_screen.dart';
 
 /// Koleksiyonum — tüm koleksiyonların listesi + Tüm Tasarımlarım virtual.
 /// Üstte "+ Yeni Koleksiyon Oluştur" + sistem favori + custom koleksiyonlar.
@@ -130,6 +132,9 @@ class CollectionsScreen extends StatelessWidget {
     return Consumer<AppProvider>(builder: (ctx, prov, _) {
       final allSaved = prov.saved;
       final collections = prov.collections;
+      final purchasedBouquets = prov.orders
+          .expand((o) => o.items.map((it) => it.bouquet))
+          .toList();
 
       return Scaffold(
         backgroundColor: AppColors.cream,
@@ -181,6 +186,17 @@ class CollectionsScreen extends StatelessWidget {
                 ),
               ),
             ]),
+            const SizedBox(height: 12),
+            // ── Satın Alınanlar ────────────────────────────────
+            if (purchasedBouquets.isNotEmpty)
+              _PurchasedCard(
+                count: purchasedBouquets.length,
+                previews: purchasedBouquets.take(3).toList(),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const PurchasedBouquetsScreen())),
+              ),
             const SizedBox(height: 20),
 
             // ── Koleksiyon listesi ────────────────────────────────
@@ -449,6 +465,103 @@ class _CoverMosaic extends StatelessWidget {
         ),
       ),
       child: const Center(child: Text('🌸', style: TextStyle(fontSize: 22))),
+    );
+  }
+}
+
+class _PurchasedCard extends StatelessWidget {
+  final int count;
+  final List<Bouquet> previews;
+  final VoidCallback onTap;
+  const _PurchasedCard({
+    required this.count,
+    required this.previews,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E1E2E), Color(0xFF2D2040)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(18),
+        child: Row(children: [
+          // Mini önizlemeler
+          SizedBox(
+            width: 100,
+            height: 64,
+            child: Stack(
+              children: previews.asMap().entries.map((e) {
+                final b = e.value;
+                return Positioned(
+                  left: e.key * 26.0,
+                  child: Container(
+                    width: 54,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.15), width: 1),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: SizedBox(
+                        width: 160,
+                        height: 160,
+                        child: BouquetPreview(
+                          flowers: b.flowers,
+                          placed: b.placedFlowers.isNotEmpty
+                              ? b.placedFlowers
+                              : null,
+                          ribbon: b.ribbon,
+                          template: b.template,
+                          height: 160,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Satın Alınanlar',
+                      style: GoogleFonts.urbanist(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white)),
+                  const SizedBox(height: 4),
+                  Text('$count tasarım',
+                      style: GoogleFonts.urbanist(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.6))),
+                ]),
+          ),
+          const Icon(Icons.arrow_forward_ios_rounded,
+              size: 14, color: Colors.white54),
+        ]),
+      ),
     );
   }
 }

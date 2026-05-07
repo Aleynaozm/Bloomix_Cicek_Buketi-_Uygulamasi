@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/widgets.dart';
+import '../../data/turkey_cities.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Adreslerim
@@ -201,16 +202,32 @@ class _AddressFormSheet extends StatefulWidget {
 class _AddressFormSheetState extends State<_AddressFormSheet> {
   final _form = GlobalKey<FormState>();
   late final _title = TextEditingController(text: widget.existing?.title ?? '');
-  late final _city = TextEditingController(text: widget.existing?.city ?? '');
-  late final _district = TextEditingController(text: widget.existing?.district ?? '');
   late final _full = TextEditingController(text: widget.existing?.fullAddress ?? '');
   late bool _isDefault = widget.existing?.isDefault ?? false;
 
+  String? _selectedCity;
+  String? _selectedDistrict;
+
+  final _cities = (turkeyCities.keys.toList()..sort());
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existing?.city.isNotEmpty == true) {
+      _selectedCity = widget.existing!.city;
+      _selectedDistrict = widget.existing!.district;
+    }
+  }
+
   @override
   void dispose() {
-    _title.dispose(); _city.dispose(); _district.dispose(); _full.dispose();
+    _title.dispose();
+    _full.dispose();
     super.dispose();
   }
+
+  List<String> get _districts =>
+      _selectedCity != null ? (turkeyCities[_selectedCity] ?? []) : [];
 
   void _save() {
     if (!_form.currentState!.validate()) return;
@@ -218,8 +235,8 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
     final addr = AppAddress(
       id: widget.existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: _title.text.trim(),
-      city: _city.text.trim(),
-      district: _district.text.trim(),
+      city: _selectedCity ?? '',
+      district: _selectedDistrict ?? '',
       fullAddress: _full.text.trim(),
       isDefault: _isDefault,
     );
@@ -248,7 +265,7 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
           ),
           const SizedBox(height: 20),
           Text(widget.existing == null ? 'Adres Ekle' : 'Adresi Düzenle',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.urbanist(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textDark)),
@@ -262,29 +279,42 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                 v == null || v.trim().isEmpty ? 'Başlık gerekli' : null,
           ),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: TextFormField(
-                controller: _city,
-                decoration: const InputDecoration(
-                    labelText: 'Şehir',
-                    prefixIcon: Icon(Icons.location_city_outlined, size: 20)),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Şehir gerekli' : null,
-              ),
+          // ── İl Dropdown ──────────────────────────────────────
+          DropdownButtonFormField<String>(
+            value: _selectedCity,
+            decoration: const InputDecoration(
+              labelText: 'İl',
+              prefixIcon: Icon(Icons.location_city_outlined, size: 20),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextFormField(
-                controller: _district,
-                decoration: const InputDecoration(
-                    labelText: 'İlçe',
-                    prefixIcon: Icon(Icons.map_outlined, size: 20)),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'İlçe gerekli' : null,
-              ),
+            isExpanded: true,
+            hint: const Text('İl seçin'),
+            items: _cities
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _selectedCity = v;
+              _selectedDistrict = null;
+            }),
+            validator: (v) => v == null ? 'İl seçiniz' : null,
+          ),
+          const SizedBox(height: 12),
+          // ── İlçe Dropdown ─────────────────────────────────────
+          DropdownButtonFormField<String>(
+            value: _selectedDistrict,
+            decoration: const InputDecoration(
+              labelText: 'İlçe',
+              prefixIcon: Icon(Icons.map_outlined, size: 20),
             ),
-          ]),
+            isExpanded: true,
+            hint: Text(_selectedCity == null ? 'Önce il seçin' : 'İlçe seçin'),
+            items: _districts
+                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                .toList(),
+            onChanged: _selectedCity == null
+                ? null
+                : (v) => setState(() => _selectedDistrict = v),
+            validator: (v) => v == null ? 'İlçe seçiniz' : null,
+          ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _full,
@@ -299,7 +329,7 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
           const SizedBox(height: 8),
           SwitchListTile(
             title: Text('Varsayılan adres olarak ayarla',
-                style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textDark)),
+                style: GoogleFonts.urbanist(fontSize: 13, color: AppColors.textDark)),
             value: _isDefault,
             onChanged: (v) => setState(() => _isDefault = v),
             activeColor: AppColors.rose,

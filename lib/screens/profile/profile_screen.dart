@@ -240,13 +240,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         MaterialPageRoute(
                             builder: (_) => const _FavoritesScreen())),
                   ),
-                  _Item(
-                    icon: Icons.local_florist_outlined,
-                    label: 'Çiçek Alfabesi',
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const AlphabetScreen())),
-                  ),
                 ],
               ),
 

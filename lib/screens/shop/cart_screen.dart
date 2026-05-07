@@ -229,10 +229,6 @@ class _CartTile extends StatelessWidget {
                             ? const Color(0xFF3070D0)
                             : AppColors.rose)),
               ),
-              const SizedBox(width: 8),
-              Text('${b.size.label} • ${b.ribbon.label} kurdele',
-                  style: GoogleFonts.poppins(
-                      fontSize: 11, color: AppColors.textLight)),
             ]),
             if (item.isLego) ...[
               const SizedBox(height: 2),
