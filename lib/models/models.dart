@@ -97,28 +97,40 @@ enum BouquetTemplate { classic, modern, minimal, luxury }
 extension BouquetTemplateExt on BouquetTemplate {
   String get label {
     switch (this) {
-      case BouquetTemplate.classic: return 'Klasik';
-      case BouquetTemplate.modern:  return 'Modern';
-      case BouquetTemplate.minimal: return 'Minimal';
-      case BouquetTemplate.luxury:  return 'Lüks';
+      case BouquetTemplate.classic:
+        return 'Klasik';
+      case BouquetTemplate.modern:
+        return 'Modern';
+      case BouquetTemplate.minimal:
+        return 'Minimal';
+      case BouquetTemplate.luxury:
+        return 'Lüks';
     }
   }
 
   String get emoji {
     switch (this) {
-      case BouquetTemplate.classic: return '🌿';
-      case BouquetTemplate.modern:  return '✨';
-      case BouquetTemplate.minimal: return '🤍';
-      case BouquetTemplate.luxury:  return '👑';
+      case BouquetTemplate.classic:
+        return '🌿';
+      case BouquetTemplate.modern:
+        return '✨';
+      case BouquetTemplate.minimal:
+        return '🤍';
+      case BouquetTemplate.luxury:
+        return '👑';
     }
   }
 
   String get assetPath {
     switch (this) {
-      case BouquetTemplate.classic: return 'assets/images/bouquet_template.png';
-      case BouquetTemplate.modern:  return 'assets/images/bouquet_template_modern.png';
-      case BouquetTemplate.minimal: return 'assets/images/bouquet_template_minimal.png';
-      case BouquetTemplate.luxury:  return 'assets/images/bouquet_template_luxury.png';
+      case BouquetTemplate.classic:
+        return 'assets/images/bouquet_template.png';
+      case BouquetTemplate.modern:
+        return 'assets/images/bouquet_template_modern.png';
+      case BouquetTemplate.minimal:
+        return 'assets/images/bouquet_template_minimal.png';
+      case BouquetTemplate.luxury:
+        return 'assets/images/bouquet_template_luxury.png';
     }
   }
 }
@@ -161,10 +173,14 @@ class Bouquet {
   final String? giftMessage;
   final bool isFavorite;
   final BouquetTemplate template;
+
   /// Canvas'taki çiçek konumları — kaydedilip geri yüklenebilir.
   final List<PlacedFlowerData> placedFlowers;
+
   /// Tasarım ekranından alınan PNG önizleme görüntüsü (bellekte, serialize edilmez).
   final Uint8List? previewImageBytes;
+  final String? previewAssetPath;
+  final String? specialBouquetId;
 
   const Bouquet({
     required this.id,
@@ -177,6 +193,8 @@ class Bouquet {
     this.template = BouquetTemplate.classic,
     this.placedFlowers = const [],
     this.previewImageBytes,
+    this.previewAssetPath,
+    this.specialBouquetId,
   });
 
   /// Çiçek sayısına göre LEGO brick adedi (~65 brick/çiçek).
@@ -198,6 +216,8 @@ class Bouquet {
     BouquetTemplate? template,
     List<PlacedFlowerData>? placedFlowers,
     Uint8List? previewImageBytes,
+    String? previewAssetPath,
+    String? specialBouquetId,
   }) =>
       Bouquet(
         id: id,
@@ -210,6 +230,8 @@ class Bouquet {
         template: template ?? this.template,
         placedFlowers: placedFlowers ?? this.placedFlowers,
         previewImageBytes: previewImageBytes ?? this.previewImageBytes,
+        previewAssetPath: previewAssetPath ?? this.previewAssetPath,
+        specialBouquetId: specialBouquetId ?? this.specialBouquetId,
       );
 }
 
@@ -219,20 +241,29 @@ class CartItem {
   final Bouquet bouquet;
   final int qty;
   final DateTime addedAt;
+
   /// true → LEGO buket, false → gerçek çiçek buketi.
   final bool isLego;
 
   // ── Upsell alanları ──────────────────────────────────────
   /// Hediye notu metni (boşsa ücret sıfır).
   final String? giftNote;
+
   /// Kullanıcının seçtiği teslimat tarihi.
   final DateTime? deliveryDate;
+
+  /// Kullanıcının seçtiği teslimat adresi.
+  final String? deliveryAddress;
+
   /// true → NFT olarak mint edildi.
   final bool isNft;
+
   /// Hediye notu ek ücreti (₺).
   final double giftNoteFee;
+
   /// NFT minting ücreti (₺).
   final double nftMintFee;
+
   /// Mock blockchain hash (isNft=true olduğunda set edilir).
   final String? nftHash;
 
@@ -244,6 +275,7 @@ class CartItem {
     this.isLego = false,
     this.giftNote,
     this.deliveryDate,
+    this.deliveryAddress,
     this.isNft = false,
     this.giftNoteFee = 0.0,
     this.nftMintFee = 0.0,
@@ -264,6 +296,7 @@ class CartItem {
     int? qty,
     String? giftNote,
     DateTime? deliveryDate,
+    String? deliveryAddress,
     bool? isNft,
     double? giftNoteFee,
     double? nftMintFee,
@@ -277,6 +310,7 @@ class CartItem {
         isLego: isLego,
         giftNote: giftNote ?? this.giftNote,
         deliveryDate: deliveryDate ?? this.deliveryDate,
+        deliveryAddress: deliveryAddress ?? this.deliveryAddress,
         isNft: isNft ?? this.isNft,
         giftNoteFee: giftNoteFee ?? this.giftNoteFee,
         nftMintFee: nftMintFee ?? this.nftMintFee,
@@ -317,6 +351,7 @@ extension OrderStatusExt on OrderStatus {
 
 class Order {
   final String id;
+
   /// Sipariş anında dondurulmuş cart snapshot'ı.
   final List<CartItem> items;
   final String recipientName;
@@ -327,6 +362,7 @@ class Order {
   final OrderStatus status;
   final DateTime createdAt;
   final double total;
+
   /// true → LEGO brick buket, false → gerçek/normal buket.
   final bool isLego;
 
@@ -426,6 +462,9 @@ class AppUser {
     this.photoUrl,
   });
 
-  AppUser copyWith({String? name, String? email, String? photoUrl}) =>
-      AppUser(id: id, name: name ?? this.name, email: email ?? this.email, photoUrl: photoUrl ?? this.photoUrl);
+  AppUser copyWith({String? name, String? email, String? photoUrl}) => AppUser(
+      id: id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl);
 }

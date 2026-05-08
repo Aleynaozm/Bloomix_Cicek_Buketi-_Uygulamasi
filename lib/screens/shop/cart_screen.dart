@@ -5,7 +5,9 @@ import '../../theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../models/models.dart';
 import '../../widgets/widgets.dart';
+import '../../data/special_day_data.dart';
 import '../bouquet/bouquet_builder_screen.dart';
+import '../main/special_bouquet_detail_screen.dart';
 import 'checkout_screen.dart';
 
 /// Sepet — eklenen tüm buketleri listeler, adet/silme ile düzenler,
@@ -36,77 +38,97 @@ class CartScreen extends StatelessWidget {
               ),
           ],
         ),
-        body: items.isEmpty ? const _EmptyCart() : Column(children: [
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              itemCount: items.length,
-              itemBuilder: (_, i) => _CartTile(
-                item: items[i],
-                onIncrement: () =>
-                    prov.updateCartQty(items[i].id, items[i].qty + 1),
-                onDecrement: () =>
-                    prov.updateCartQty(items[i].id, items[i].qty - 1),
-                onRemove: () => prov.removeFromCart(items[i].id),
-                onTap: () {
-                  prov.loadBouquetForEdit(items[i].bouquet);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BouquetBuilderScreen(cartItem: items[i]),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
+        body: items.isEmpty
+            ? const _EmptyCart()
+            : Column(children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                    itemCount: items.length,
+                    itemBuilder: (_, i) => _CartTile(
+                      item: items[i],
+                      onIncrement: () =>
+                          prov.updateCartQty(items[i].id, items[i].qty + 1),
+                      onDecrement: () =>
+                          prov.updateCartQty(items[i].id, items[i].qty - 1),
+                      onRemove: () => prov.removeFromCart(items[i].id),
+                      onTap: () {
+                        final special = _findSpecialBouquet(items[i]);
+                        if (special != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  SpecialBouquetDetailScreen(bouquet: special),
+                            ),
+                          );
+                          return;
+                        }
 
-          // Bottom toplam + checkout
-          Container(
-            padding: EdgeInsets.fromLTRB(
-                20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              border: Border(
-                  top: BorderSide(color: AppColors.border, width: 0.5)),
-            ),
-            child: Column(children: [
-              // Brick toplamı sadece LEGO ürünler varsa göster
-              if (brickTotal > 0) ...[
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text('Toplam Brick',
-                      style: GoogleFonts.poppins(
-                          fontSize: 13, color: AppColors.textLight)),
-                  Text('$brickTotal adet',
-                      style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: const Color(0xFF3070D0),
-                          fontWeight: FontWeight.w600)),
-                ]),
-                const SizedBox(height: 6),
-              ],
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Toplam Tutar',
-                    style: GoogleFonts.poppins(
-                        fontSize: 14, color: AppColors.textDark,
-                        fontWeight: FontWeight.w600)),
-                Text('₺${total.toStringAsFixed(0)}',
-                    style: GoogleFonts.poppins(
-                        fontSize: 22,
-                        color: AppColors.rose,
-                        fontWeight: FontWeight.w800)),
+                        prov.loadBouquetForEdit(items[i].bouquet);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                BouquetBuilderScreen(cartItem: items[i]),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // Bottom toplam + checkout
+                Container(
+                  padding: EdgeInsets.fromLTRB(
+                      20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    border: Border(
+                        top: BorderSide(color: AppColors.border, width: 0.5)),
+                  ),
+                  child: Column(children: [
+                    // Brick toplamı sadece LEGO ürünler varsa göster
+                    if (brickTotal > 0) ...[
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Toplam Brick',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 13, color: AppColors.textLight)),
+                            Text('$brickTotal adet',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: const Color(0xFF3070D0),
+                                    fontWeight: FontWeight.w600)),
+                          ]),
+                      const SizedBox(height: 6),
+                    ],
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Toplam Tutar',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppColors.textDark,
+                                  fontWeight: FontWeight.w600)),
+                          Text('₺${total.toStringAsFixed(0)}',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 22,
+                                  color: AppColors.rose,
+                                  fontWeight: FontWeight.w800)),
+                        ]),
+                    const SizedBox(height: 14),
+                    GradientButton(
+                      label: 'Siparişi Tamamla',
+                      onPressed: () {
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const CheckoutScreen()));
+                      },
+                    ),
+                  ]),
+                ),
               ]),
-              const SizedBox(height: 14),
-              GradientButton(
-                label: 'Siparişi Tamamla',
-                onPressed: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const CheckoutScreen()));
-                },
-              ),
-            ]),
-          ),
-        ]),
       );
     });
   }
@@ -119,7 +141,8 @@ class CartScreen extends StatelessWidget {
         content: const Text('Sepetindeki tüm buketler silinecek.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Vazgeç')),
           TextButton(
             onPressed: () {
               prov.clearCart();
@@ -153,128 +176,136 @@ class _CartTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Mini buket önizleme
-        SizedBox(
-          width: 64,
-          height: 64,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              color: b.ribbon.color.withOpacity(0.10),
-              child: b.previewImageBytes != null
-                  ? Image.memory(b.previewImageBytes!, fit: BoxFit.contain)
-                  : FittedBox(
-                      fit: BoxFit.contain,
-                      child: SizedBox(
-                        width: 180,
-                        height: 180,
-                        child: BouquetPreview(
-                          flowers: b.flowers,
-                          placed: b.placedFlowers.isNotEmpty
-                              ? b.placedFlowers
-                              : null,
-                          ribbon: b.ribbon,
-                          template: b.template,
-                          height: 180,
-                        ),
-                      ),
-                    ),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Mini buket önizleme
+          SizedBox(
+            width: 64,
+            height: 64,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                color: b.ribbon.color.withOpacity(0.10),
+                child: b.previewImageBytes != null
+                    ? Image.memory(b.previewImageBytes!, fit: BoxFit.contain)
+                    : b.previewAssetPath != null
+                        ? Image.asset(
+                            b.previewAssetPath!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.local_florist_rounded,
+                              color: AppColors.rose,
+                            ),
+                          )
+                        : FittedBox(
+                            fit: BoxFit.contain,
+                            child: SizedBox(
+                              width: 180,
+                              height: 180,
+                              child: BouquetPreview(
+                                flowers: b.flowers,
+                                placed: b.placedFlowers.isNotEmpty
+                                    ? b.placedFlowers
+                                    : null,
+                                ribbon: b.ribbon,
+                                template: b.template,
+                                height: 180,
+                              ),
+                            ),
+                          ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: Text(b.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                        letterSpacing: 1.2)),
-              ),
-              GestureDetector(
-                onTap: onRemove,
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(Icons.close_rounded,
-                      size: 18, color: AppColors.textLight),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 4),
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: (item.isLego
-                          ? const Color(0xFF3070D0)
-                          : AppColors.rose)
-                      .withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(item.isLego ? '🧱 LEGO' : '🌸 Normal',
-                    style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: item.isLego
-                            ? const Color(0xFF3070D0)
-                            : AppColors.rose)),
-              ),
-            ]),
-            if (item.isLego) ...[
-              const SizedBox(height: 2),
-              Text('${b.legoCount} brick',
-                  style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: const Color(0xFF3070D0),
-                      fontWeight: FontWeight.w600)),
-            ],
-            // ── Ek hizmetler (not / tarih / NFT) ─────────────
-            if (item.giftNote?.isNotEmpty == true ||
-                item.deliveryDate != null ||
-                item.isNft) ...[
-              const SizedBox(height: 6),
-              _CartExtras(item: item),
-            ],
-            const SizedBox(height: 8),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              // Qty stepper
-              _QtyStepper(
-                  qty: item.qty,
-                  onInc: onIncrement,
-                  onDec: onDecrement),
-              // Fiyat: buket + ekstra ücretler
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                if (item.extraFees > 0)
-                  Text('+₺${item.extraFees.toStringAsFixed(0)} ek',
+          const SizedBox(width: 14),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: Text(b.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          color: AppColors.rose,
-                          fontWeight: FontWeight.w600)),
-                Text('₺${item.lineTotal.toStringAsFixed(0)}',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textDark,
+                          letterSpacing: 1.2)),
+                ),
+                GestureDetector(
+                  onTap: onRemove,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close_rounded,
+                        size: 18, color: AppColors.textLight),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Row(children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color:
+                        (item.isLego ? const Color(0xFF3070D0) : AppColors.rose)
+                            .withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(item.isLego ? '🧱 LEGO' : '🌸 Normal',
+                      style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: item.isLego
+                              ? const Color(0xFF3070D0)
+                              : AppColors.rose)),
+                ),
+              ]),
+              if (item.isLego) ...[
+                const SizedBox(height: 2),
+                Text('${b.legoCount} brick',
                     style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textDark)),
+                        fontSize: 11,
+                        color: const Color(0xFF3070D0),
+                        fontWeight: FontWeight.w600)),
+              ],
+              // ── Ek hizmetler (not / tarih / NFT) ─────────────
+              if (item.giftNote?.isNotEmpty == true ||
+                  item.deliveryDate != null ||
+                  item.deliveryAddress?.isNotEmpty == true ||
+                  item.isNft) ...[
+                const SizedBox(height: 6),
+                _CartExtras(item: item),
+              ],
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                // Qty stepper
+                _QtyStepper(
+                    qty: item.qty, onInc: onIncrement, onDec: onDecrement),
+                // Fiyat: buket + ekstra ücretler
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  if (item.extraFees > 0)
+                    Text('+₺${item.extraFees.toStringAsFixed(0)} ek',
+                        style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            color: AppColors.rose,
+                            fontWeight: FontWeight.w600)),
+                  Text('₺${item.lineTotal.toStringAsFixed(0)}',
+                      style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark)),
+                ]),
               ]),
             ]),
-          ]),
-        ),
-      ]),
-    ),
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -311,12 +342,16 @@ class _CartExtras extends StatelessWidget {
             label: 'Teslimat: ${_fmtDate(item.deliveryDate!)}',
             color: const Color(0xFF3070D0),
           ),
+        if (item.deliveryAddress?.isNotEmpty == true)
+          _ExtraRow(
+            icon: Icons.location_on_outlined,
+            label: item.deliveryAddress!.replaceAll('\n', ' '),
+            color: const Color(0xFF3070D0),
+          ),
         if (item.isNft)
           _ExtraRow(
             icon: Icons.diamond_outlined,
-            label: item.nftHash != null
-                ? 'NFT · ${item.nftHash!}'
-                : 'NFT mint',
+            label: item.nftHash != null ? 'NFT · ${item.nftHash!}' : 'NFT mint',
             badge: item.nftMintFee > 0
                 ? '+₺${item.nftMintFee.toStringAsFixed(0)}'
                 : null,
@@ -352,9 +387,7 @@ class _ExtraRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-                fontSize: 10,
-                color: color,
-                fontWeight: FontWeight.w500),
+                fontSize: 10, color: color, fontWeight: FontWeight.w500),
           ),
         ),
         if (badge != null) ...[
@@ -373,7 +406,8 @@ class _ExtraRow extends StatelessWidget {
 class _QtyStepper extends StatelessWidget {
   final int qty;
   final VoidCallback onInc, onDec;
-  const _QtyStepper({required this.qty, required this.onInc, required this.onDec});
+  const _QtyStepper(
+      {required this.qty, required this.onInc, required this.onDec});
 
   @override
   Widget build(BuildContext context) {
@@ -389,8 +423,8 @@ class _QtyStepper extends StatelessWidget {
           child: const SizedBox(
               width: 32,
               height: 32,
-              child: Icon(Icons.remove_rounded,
-                  size: 16, color: AppColors.rose)),
+              child:
+                  Icon(Icons.remove_rounded, size: 16, color: AppColors.rose)),
         ),
         SizedBox(
           width: 24,
@@ -405,12 +439,31 @@ class _QtyStepper extends StatelessWidget {
           child: const SizedBox(
               width: 32,
               height: 32,
-              child: Icon(Icons.add_rounded,
-                  size: 16, color: AppColors.rose)),
+              child: Icon(Icons.add_rounded, size: 16, color: AppColors.rose)),
         ),
       ]),
     );
   }
+}
+
+SpecialBouquet? _findSpecialBouquet(CartItem item) {
+  final explicitId = item.bouquet.specialBouquetId;
+  final parsedId = _parseSpecialBouquetId(item.bouquet.id);
+  final id = explicitId ?? parsedId;
+  if (id == null) return null;
+  for (final bouquet in specialBouquets) {
+    if (bouquet.id == id) return bouquet;
+  }
+  return null;
+}
+
+String? _parseSpecialBouquetId(String bouquetId) {
+  const prefix = 'b_special_';
+  if (!bouquetId.startsWith(prefix)) return null;
+  final raw = bouquetId.substring(prefix.length);
+  final parts = raw.split('_');
+  if (parts.length < 2) return null;
+  return '${parts[0]}_${parts[1]}';
 }
 
 class _EmptyCart extends StatelessWidget {
@@ -441,8 +494,8 @@ class _EmptyCart extends StatelessWidget {
           const SizedBox(height: 6),
           Text('Tasarladığın buketler burada görünür.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                  fontSize: 13, color: AppColors.textMid)),
+              style:
+                  GoogleFonts.poppins(fontSize: 13, color: AppColors.textMid)),
         ]),
       ),
     );

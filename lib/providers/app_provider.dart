@@ -159,15 +159,16 @@ class AppProvider extends ChangeNotifier {
   BouquetSize _size = BouquetSize.medium;
   BouquetTemplate _template = BouquetTemplate.classic;
   Bouquet? _currentBouquet;
+
   /// True = serbest tasarla akışından geldi, False = alfabe akışı.
   bool _isFreeDesign = false;
+
   /// Canvas'tan alınan PNG görüntüsü — sadece serbest tasarım akışında dolu.
   Uint8List? _designPreviewImage;
 
   String get inputName => _inputName;
   List<Flower> get flowers => _flowers;
-  List<PlacedFlowerData> get placedFlowers =>
-      List.unmodifiable(_placedFlowers);
+  List<PlacedFlowerData> get placedFlowers => List.unmodifiable(_placedFlowers);
   RibbonStyle get ribbon => _ribbon;
   BouquetSize get size => _size;
   BouquetTemplate get template => _template;
@@ -467,8 +468,7 @@ class AppProvider extends ChangeNotifier {
     final c = _collections[i];
     if (!c.savedBouquetIds.contains(savedId)) return;
     _collections[i] = c.copyWith(
-      savedBouquetIds:
-          c.savedBouquetIds.where((id) => id != savedId).toList(),
+      savedBouquetIds: c.savedBouquetIds.where((id) => id != savedId).toList(),
     );
     notifyListeners();
     _persist();
@@ -525,18 +525,26 @@ class AppProvider extends ChangeNotifier {
     bool isLego = false,
     String? giftNote,
     DateTime? deliveryDate,
+    String? deliveryAddress,
     bool isNft = false,
     double giftNoteFee = 0.0,
     double nftMintFee = 0.0,
     String? nftHash,
   }) {
-    final hasExtras =
-        (giftNote != null && giftNote.isNotEmpty) || isNft;
+    final hasExtras = (giftNote != null && giftNote.isNotEmpty) ||
+        deliveryDate != null ||
+        (deliveryAddress != null && deliveryAddress.isNotEmpty) ||
+        giftNoteFee > 0 ||
+        nftMintFee > 0 ||
+        isNft;
 
     if (!hasExtras) {
       // Sade mod: aynı satırın adedini artır
-      final idx = _cart.indexWhere(
-          (it) => it.bouquet.id == b.id && it.isLego == isLego && !it.isNft && (it.giftNote == null || it.giftNote!.isEmpty));
+      final idx = _cart.indexWhere((it) =>
+          it.bouquet.id == b.id &&
+          it.isLego == isLego &&
+          !it.isNft &&
+          (it.giftNote == null || it.giftNote!.isEmpty));
       if (idx >= 0) {
         _cart[idx] = _cart[idx].copyWith(qty: _cart[idx].qty + qty);
         notifyListeners();
@@ -553,6 +561,7 @@ class AppProvider extends ChangeNotifier {
       isLego: isLego,
       giftNote: giftNote,
       deliveryDate: deliveryDate,
+      deliveryAddress: deliveryAddress,
       isNft: isNft,
       giftNoteFee: giftNoteFee,
       nftMintFee: nftMintFee,
@@ -617,12 +626,18 @@ class AppProvider extends ChangeNotifier {
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
   void markNotificationRead(String id) {
-    final n = _notifications.firstWhere((n) => n.id == id, orElse: () => _notifications.first);
-    if (!n.isRead) { n.isRead = true; notifyListeners(); }
+    final n = _notifications.firstWhere((n) => n.id == id,
+        orElse: () => _notifications.first);
+    if (!n.isRead) {
+      n.isRead = true;
+      notifyListeners();
+    }
   }
 
   void markAllNotificationsRead() {
-    for (final n in _notifications) { n.isRead = true; }
+    for (final n in _notifications) {
+      n.isRead = true;
+    }
     notifyListeners();
   }
 
@@ -669,8 +684,15 @@ class AppProvider extends ChangeNotifier {
   // ── Notification preferences ──────────────────────────────────────────────
   bool notifOrders = true;
   bool notifCampaigns = false;
-  void setNotifOrders(bool v) { notifOrders = v; notifyListeners(); }
-  void setNotifCampaigns(bool v) { notifCampaigns = v; notifyListeners(); }
+  void setNotifOrders(bool v) {
+    notifOrders = v;
+    notifyListeners();
+  }
+
+  void setNotifCampaigns(bool v) {
+    notifCampaigns = v;
+    notifyListeners();
+  }
 
   /// Sepetteki tüm buketleri tek bir order'a çevirir.
   /// Cart boşsa null döner. Order başarılı olunca cart temizlenir.

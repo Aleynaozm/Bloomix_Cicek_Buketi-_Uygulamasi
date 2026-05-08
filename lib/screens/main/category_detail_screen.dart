@@ -19,27 +19,29 @@ class CategoryDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('${category.emoji}  ${category.title}'),
       ),
-      body: ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: [
-        // ── Buket grid'i ─────────────────────────────────────────
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: 0.68,
-          children: bouquets
-              .map((b) => _BouquetCard(
-                    bouquet: b,
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                SpecialBouquetDetailScreen(bouquet: b))),
-                  ))
-              .toList(),
-        ),
-      ]),
+      body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          children: [
+            // ── Buket grid'i ─────────────────────────────────────────
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              childAspectRatio: 0.68,
+              children: bouquets
+                  .map((b) => _BouquetCard(
+                        bouquet: b,
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    SpecialBouquetDetailScreen(bouquet: b))),
+                      ))
+                  .toList(),
+            ),
+          ]),
     );
   }
 }
@@ -52,6 +54,9 @@ class _BouquetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = bouquet.category.colors;
+    final imagePath = bouquet.normalAssetPath.isNotEmpty
+        ? bouquet.normalAssetPath
+        : bouquet.assetPath;
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -79,8 +84,8 @@ class _BouquetCard extends StatelessWidget {
                 ),
               ),
               child: Image.asset(
-                bouquet.assetPath,
-                fit: BoxFit.cover,
+                imagePath,
+                fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => Center(
                   child: Text(bouquet.category.emoji,
                       style: const TextStyle(fontSize: 56)),
@@ -97,21 +102,22 @@ class _BouquetCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(bouquet.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textDark,
-                              height: 1.2)),
-                      const SizedBox(height: 4),
-                      Text('${bouquet.legoCount} brick',
-                          style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: AppColors.textLight)),
-                    ]),
+                    Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(bouquet.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textDark,
+                                  height: 1.2)),
+                          const SizedBox(height: 4),
+                          Text('${bouquet.legoCount} brick',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11, color: AppColors.textLight)),
+                        ]),
                     Text('₺${bouquet.price.toStringAsFixed(0)}',
                         style: GoogleFonts.poppins(
                             fontSize: 16,
