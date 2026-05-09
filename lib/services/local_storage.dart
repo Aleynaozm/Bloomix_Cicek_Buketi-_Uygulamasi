@@ -31,6 +31,9 @@ class LocalStorage {
         'template': b.template.index,
         'previewAssetPath': b.previewAssetPath,
         'specialBouquetId': b.specialBouquetId,
+        'aiPreviewStyle': b.aiPreviewStyle?.index,
+        'aiPrompt': b.aiPrompt,
+        'aiImageBase64': b.aiImageBase64,
         'placedFlowers': b.placedFlowers
             .map((p) => {
                   'id': p.id,
@@ -80,6 +83,12 @@ class LocalStorage {
         placedFlowers: placed,
         previewAssetPath: j['previewAssetPath'] as String?,
         specialBouquetId: j['specialBouquetId'] as String?,
+        aiPreviewStyle: j['aiPreviewStyle'] is int
+            ? AiPreviewStyle.values[(j['aiPreviewStyle'] as int)
+                .clamp(0, AiPreviewStyle.values.length - 1)]
+            : null,
+        aiPrompt: j['aiPrompt'] as String?,
+        aiImageBase64: j['aiImageBase64'] as String?,
       );
     } catch (_) {
       return null;

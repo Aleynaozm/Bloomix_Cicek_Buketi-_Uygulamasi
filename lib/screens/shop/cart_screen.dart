@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -47,6 +48,9 @@ class CartScreen extends StatelessWidget {
                     itemCount: items.length,
                     itemBuilder: (_, i) => _CartTile(
                       item: items[i],
+                      isSpecial: _findSpecialBouquet(items[i]) != null,
+                      onAiPreview: () =>
+                          _generateAiPreview(context, prov, items[i]),
                       onIncrement: () =>
                           prov.updateCartQty(items[i].id, items[i].qty + 1),
                       onDecrement: () =>
@@ -156,23 +160,75 @@ class CartScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _generateAiPreview(
+    BuildContext context,
+    AppProvider prov,
+    CartItem item,
+  ) async {
+    final style = item.isLego ? AiPreviewStyle.lego : AiPreviewStyle.realistic;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(children: [
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text('${style.shortLabel} hazırlanıyor...',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      ),
+    );
+    try {
+      await prov.applyAiPreviewToCart(item.id, style);
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('${style.shortLabel} görseli hazır.'),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFFD32030),
+          content: Text('AI görseli üretilemedi: $e'),
+        ),
+      );
+    }
+  }
 }
 
 class _CartTile extends StatelessWidget {
   final CartItem item;
+  final bool isSpecial;
   final VoidCallback onIncrement, onDecrement, onRemove;
+  final VoidCallback onAiPreview;
   final VoidCallback? onTap;
   const _CartTile({
     required this.item,
+    required this.isSpecial,
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
+    required this.onAiPreview,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final b = item.bouquet;
+    final hasAiImage = b.aiImageBase64?.isNotEmpty == true;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -183,130 +239,400 @@ class _CartTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.border),
         ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Mini buket önizleme
-          SizedBox(
-            width: 64,
-            height: 64,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                color: b.ribbon.color.withOpacity(0.10),
-                child: b.previewImageBytes != null
-                    ? Image.memory(b.previewImageBytes!, fit: BoxFit.contain)
-                    : b.previewAssetPath != null
-                        ? Image.asset(
-                            b.previewAssetPath!,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.local_florist_rounded,
-                              color: AppColors.rose,
-                            ),
-                          )
-                        : FittedBox(
-                            fit: BoxFit.contain,
-                            child: SizedBox(
-                              width: 180,
-                              height: 180,
-                              child: BouquetPreview(
-                                flowers: b.flowers,
-                                placed: b.placedFlowers.isNotEmpty
-                                    ? b.placedFlowers
-                                    : null,
-                                ribbon: b.ribbon,
-                                template: b.template,
-                                height: 180,
-                              ),
-                            ),
+        child: Column(children: [
+          if (hasAiImage) ...[
+            _AiHeroPreview(
+              item: item,
+              onView: () => _showAiPreviewDialog(context, item),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Mini buket önizleme
+            SizedBox(
+              width: hasAiImage ? 0 : 64,
+              height: hasAiImage ? 0 : 64,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  color: b.ribbon.color.withOpacity(0.10),
+                  child: Stack(children: [
+                    Positioned.fill(
+                      child: b.aiImageBase64?.isNotEmpty == true
+                          ? Image.memory(
+                              base64Decode(b.aiImageBase64!),
+                              fit: BoxFit.contain,
+                            )
+                          : b.previewImageBytes != null
+                              ? Image.memory(b.previewImageBytes!,
+                                  fit: BoxFit.contain)
+                              : b.previewAssetPath != null
+                                  ? Image.asset(
+                                      b.previewAssetPath!,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.local_florist_rounded,
+                                        color: AppColors.rose,
+                                      ),
+                                    )
+                                  : FittedBox(
+                                      fit: BoxFit.contain,
+                                      child: SizedBox(
+                                        width: 180,
+                                        height: 180,
+                                        child: BouquetPreview(
+                                          flowers: b.flowers,
+                                          placed: b.placedFlowers.isNotEmpty
+                                              ? b.placedFlowers
+                                              : null,
+                                          ribbon: b.ribbon,
+                                          template: b.template,
+                                          height: 180,
+                                        ),
+                                      ),
+                                    ),
+                    ),
+                    if (b.aiPreviewStyle != null)
+                      Positioned(
+                        left: 4,
+                        right: 4,
+                        bottom: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.textDark.withValues(alpha: 0.72),
+                            borderRadius: BorderRadius.circular(7),
                           ),
+                          child: Text(
+                            b.aiPreviewStyle!.shortLabel,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.white),
+                          ),
+                        ),
+                      ),
+                  ]),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: Text(b.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textDark,
-                          letterSpacing: 1.2)),
-                ),
-                GestureDetector(
-                  onTap: onRemove,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.close_rounded,
-                        size: 18, color: AppColors.textLight),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 4),
-              Row(children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color:
-                        (item.isLego ? const Color(0xFF3070D0) : AppColors.rose)
-                            .withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(item.isLego ? '🧱 LEGO' : '🌸 Normal',
-                      style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: item.isLego
-                              ? const Color(0xFF3070D0)
-                              : AppColors.rose)),
-                ),
-              ]),
-              if (item.isLego) ...[
-                const SizedBox(height: 2),
-                Text('${b.legoCount} brick',
+            if (!hasAiImage) const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(b.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textDark,
+                                    letterSpacing: 1.2)),
+                          ),
+                          GestureDetector(
+                            onTap: onRemove,
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(Icons.close_rounded,
+                                  size: 18, color: AppColors.textLight),
+                            ),
+                          ),
+                        ]),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (item.isLego
+                                  ? const Color(0xFF3070D0)
+                                  : AppColors.rose)
+                              .withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(item.isLego ? '🧱 LEGO' : '🌸 Normal',
+                            style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: item.isLego
+                                    ? const Color(0xFF3070D0)
+                                    : AppColors.rose)),
+                      ),
+                    ]),
+                    if (!isSpecial) ...[
+                      const SizedBox(height: 6),
+                      _AiPreviewControls(
+                        isLego: item.isLego,
+                        style: b.aiPreviewStyle,
+                        hasImage: b.aiImageBase64?.isNotEmpty == true,
+                        onTap: onAiPreview,
+                        onView: () => _showAiPreviewDialog(context, item),
+                      ),
+                    ],
+                    if (item.isLego) ...[
+                      const SizedBox(height: 2),
+                      Text('${b.legoCount} brick',
+                          style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: const Color(0xFF3070D0),
+                              fontWeight: FontWeight.w600)),
+                    ],
+                    // ── Ek hizmetler (not / tarih / NFT) ─────────────
+                    if (item.giftNote?.isNotEmpty == true ||
+                        item.deliveryDate != null ||
+                        item.deliveryAddress?.isNotEmpty == true ||
+                        item.isNft) ...[
+                      const SizedBox(height: 6),
+                      _CartExtras(item: item),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Qty stepper
+                          _QtyStepper(
+                              qty: item.qty,
+                              onInc: onIncrement,
+                              onDec: onDecrement),
+                          // Fiyat: buket + ekstra ücretler
+                          Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                if (item.extraFees > 0)
+                                  Text(
+                                      '+₺${item.extraFees.toStringAsFixed(0)} ek',
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 9,
+                                          color: AppColors.rose,
+                                          fontWeight: FontWeight.w600)),
+                                Text('₺${item.lineTotal.toStringAsFixed(0)}',
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textDark)),
+                              ]),
+                        ]),
+                  ]),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  void _showAiPreviewDialog(BuildContext context, CartItem item) {
+    final imageBase64 = item.bouquet.aiImageBase64;
+    if (imageBase64 == null || imageBase64.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.all(18),
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 10, 8),
+            child: Row(children: [
+              Expanded(
+                child: Text(item.bouquet.aiPreviewStyle?.label ?? 'AI Görsel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: const Color(0xFF3070D0),
-                        fontWeight: FontWeight.w600)),
-              ],
-              // ── Ek hizmetler (not / tarih / NFT) ─────────────
-              if (item.giftNote?.isNotEmpty == true ||
-                  item.deliveryDate != null ||
-                  item.deliveryAddress?.isNotEmpty == true ||
-                  item.isNft) ...[
-                const SizedBox(height: 6),
-                _CartExtras(item: item),
-              ],
-              const SizedBox(height: 8),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                // Qty stepper
-                _QtyStepper(
-                    qty: item.qty, onInc: onIncrement, onDec: onDecrement),
-                // Fiyat: buket + ekstra ücretler
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  if (item.extraFees > 0)
-                    Text('+₺${item.extraFees.toStringAsFixed(0)} ek',
-                        style: GoogleFonts.poppins(
-                            fontSize: 9,
-                            color: AppColors.rose,
-                            fontWeight: FontWeight.w600)),
-                  Text('₺${item.lineTotal.toStringAsFixed(0)}',
-                      style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark)),
-                ]),
-              ]),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark)),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded),
+                color: AppColors.textLight,
+              ),
             ]),
+          ),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4,
+                  child: Image.memory(
+                    base64Decode(imageBase64),
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
           ),
         ]),
       ),
     );
+  }
+}
+
+class _AiHeroPreview extends StatelessWidget {
+  final CartItem item;
+  final VoidCallback onView;
+
+  const _AiHeroPreview({
+    required this.item,
+    required this.onView,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final imageBase64 = item.bouquet.aiImageBase64!;
+    return SizedBox(
+      height: 260,
+      width: double.infinity,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(children: [
+          Positioned.fill(
+            child: Container(
+              color: item.bouquet.ribbon.color.withValues(alpha: 0.08),
+              child: Image.memory(
+                base64Decode(imageBase64),
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 10,
+            bottom: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.textDark.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                item.bouquet.aiPreviewStyle?.shortLabel ?? 'AI Görsel',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.white,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 10,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: onView,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.open_in_full_rounded,
+                  size: 17,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _AiPreviewControls extends StatelessWidget {
+  final bool isLego;
+  final AiPreviewStyle? style;
+  final bool hasImage;
+  final VoidCallback onTap;
+  final VoidCallback onView;
+
+  const _AiPreviewControls({
+    required this.isLego,
+    required this.style,
+    required this.hasImage,
+    required this.onTap,
+    required this.onView,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final expectedStyle =
+        isLego ? AiPreviewStyle.lego : AiPreviewStyle.realistic;
+    final selected = style == expectedStyle;
+    final color = selected ? const Color(0xFF6B48FF) : AppColors.rose;
+    final label = selected
+        ? '${expectedStyle.shortLabel} hazır'
+        : 'AI Görseline Dönüştür';
+    return Wrap(spacing: 6, runSpacing: 6, children: [
+      InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: selected ? 0.16 : 0.08),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(
+              isLego ? Icons.extension_rounded : Icons.auto_awesome_rounded,
+              size: 13,
+              color: color,
+            ),
+            const SizedBox(width: 4),
+            Text(label,
+                style: GoogleFonts.poppins(
+                    fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+          ]),
+        ),
+      ),
+      if (hasImage)
+        InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onView,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.textDark.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(999),
+              border:
+                  Border.all(color: AppColors.textDark.withValues(alpha: 0.14)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.open_in_full_rounded,
+                  size: 12, color: AppColors.textDark),
+              const SizedBox(width: 4),
+              Text('Büyük Gör',
+                  style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark)),
+            ]),
+          ),
+        ),
+    ]);
   }
 }
 

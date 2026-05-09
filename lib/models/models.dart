@@ -163,6 +163,28 @@ extension BouquetSizeExt on BouquetSize {
   }
 }
 
+enum AiPreviewStyle { realistic, lego }
+
+extension AiPreviewStyleExt on AiPreviewStyle {
+  String get label {
+    switch (this) {
+      case AiPreviewStyle.realistic:
+        return 'AI Gerçek Buket';
+      case AiPreviewStyle.lego:
+        return 'AI LEGO Buket';
+    }
+  }
+
+  String get shortLabel {
+    switch (this) {
+      case AiPreviewStyle.realistic:
+        return 'AI Gerçek';
+      case AiPreviewStyle.lego:
+        return 'AI LEGO';
+    }
+  }
+}
+
 // ── Bouquet ───────────────────────────────────────────────
 class Bouquet {
   final String id;
@@ -181,6 +203,9 @@ class Bouquet {
   final Uint8List? previewImageBytes;
   final String? previewAssetPath;
   final String? specialBouquetId;
+  final AiPreviewStyle? aiPreviewStyle;
+  final String? aiPrompt;
+  final String? aiImageBase64;
 
   const Bouquet({
     required this.id,
@@ -195,6 +220,9 @@ class Bouquet {
     this.previewImageBytes,
     this.previewAssetPath,
     this.specialBouquetId,
+    this.aiPreviewStyle,
+    this.aiPrompt,
+    this.aiImageBase64,
   });
 
   /// Çiçek sayısına göre LEGO brick adedi (~65 brick/çiçek).
@@ -218,6 +246,9 @@ class Bouquet {
     Uint8List? previewImageBytes,
     String? previewAssetPath,
     String? specialBouquetId,
+    AiPreviewStyle? aiPreviewStyle,
+    String? aiPrompt,
+    String? aiImageBase64,
   }) =>
       Bouquet(
         id: id,
@@ -232,6 +263,9 @@ class Bouquet {
         previewImageBytes: previewImageBytes ?? this.previewImageBytes,
         previewAssetPath: previewAssetPath ?? this.previewAssetPath,
         specialBouquetId: specialBouquetId ?? this.specialBouquetId,
+        aiPreviewStyle: aiPreviewStyle ?? this.aiPreviewStyle,
+        aiPrompt: aiPrompt ?? this.aiPrompt,
+        aiImageBase64: aiImageBase64 ?? this.aiImageBase64,
       );
 }
 
@@ -293,6 +327,7 @@ class CartItem {
   int get lineLegoCount => isLego ? bouquet.legoCount * qty : 0;
 
   CartItem copyWith({
+    Bouquet? bouquet,
     int? qty,
     String? giftNote,
     DateTime? deliveryDate,
@@ -304,7 +339,7 @@ class CartItem {
   }) =>
       CartItem(
         id: id,
-        bouquet: bouquet,
+        bouquet: bouquet ?? this.bouquet,
         qty: qty ?? this.qty,
         addedAt: addedAt,
         isLego: isLego,

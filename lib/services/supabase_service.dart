@@ -14,11 +14,12 @@ class SupabaseService {
   // ══════════════════════════════════════════════════════════════════════════
   static const String _url = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://imuhreosceixmnefwdqt.supabase.co',
+    defaultValue: 'https://ekvlhpslvsjdeuckxsjt.supabase.co',
   );
   static const String _anonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltdWhyZW9zY2VpeG1uZWZ3ZHF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MzMxOTAsImV4cCI6MjA5MzIwOTE5MH0.vY-itExVeI9qwTbwNYJ0vE0b19MopNQwHFOSsGFH4go',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdmxocHNsdnNqZGV1Y2t4c2p0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTkxMTYsImV4cCI6MjA5Mzg5NTExNn0.jp2AE-i5GocoswlAP4KeDZleh1BDn6Q1j8mv9hxtncI',
   );
 
   // Google Sign-In iOS OAuth client ID — Info.plist GIDClientID ile eşleşmeli.
@@ -26,7 +27,8 @@ class SupabaseService {
   // Client ID: {id}.apps.googleusercontent.com
   static const String _googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
-    defaultValue: '540154424800-jggniav15br88p1cbkdaglcbccfn755j.apps.googleusercontent.com',
+    defaultValue:
+        '540154424800-jggniav15br88p1cbkdaglcbccfn755j.apps.googleusercontent.com',
   );
 
   static SupabaseClient get client => Supabase.instance.client;
@@ -58,7 +60,8 @@ class SupabaseService {
     required String email,
     required String password,
   }) async {
-    return await auth.signInWithPassword(email: email.trim(), password: password);
+    return await auth.signInWithPassword(
+        email: email.trim(), password: password);
   }
 
   /// E-posta + şifre ile kayıt. Başarılı olursa profiles tablosuna da ekler.
@@ -74,7 +77,8 @@ class SupabaseService {
     );
     final user = res.user;
     if (user != null) {
-      await _upsertProfile(userId: user.id, email: user.email ?? email, fullName: fullName);
+      await _upsertProfile(
+          userId: user.id, email: user.email ?? email, fullName: fullName);
     }
     return res;
   }
@@ -102,7 +106,7 @@ class SupabaseService {
     }
 
     final googleAuth = await googleUser.authentication;
-    final idToken    = googleAuth.idToken;
+    final idToken = googleAuth.idToken;
     final accessToken = googleAuth.accessToken;
 
     if (idToken == null) {
@@ -161,7 +165,8 @@ class SupabaseService {
   static Future<Map<String, dynamic>?> fetchCurrentProfile() async {
     final uid = currentUser?.id;
     if (uid == null) return null;
-    final res = await client.from('profiles').select().eq('id', uid).maybeSingle();
+    final res =
+        await client.from('profiles').select().eq('id', uid).maybeSingle();
     return res;
   }
 

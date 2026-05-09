@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../data/flower_data.dart';
 import '../services/supabase_service.dart';
 import '../services/local_storage.dart';
+import '../services/ai_image_service.dart';
 
 class AppProvider extends ChangeNotifier {
   AppProvider() {
@@ -587,6 +588,45 @@ class AppProvider extends ChangeNotifier {
     }
     notifyListeners();
     _persist();
+  }
+
+  Future<void> applyAiPreviewToCart(
+      String cartItemId, AiPreviewStyle style) async {
+    final idx = _cart.indexWhere((it) => it.id == cartItemId);
+    if (idx < 0) return;
+    final item = _cart[idx];
+    final prompt = _buildAiPrompt(item.bouquet, style);
+    final result = await AiImageService.generateBouquetImage(
+      bouquet: item.bouquet,
+      style: style,
+      prompt: prompt,
+    );
+    _cart[idx] = item.copyWith(
+      bouquet: item.bouquet.copyWith(
+        aiPreviewStyle: style,
+        aiPrompt: result.prompt,
+        aiImageBase64: result.imageBase64,
+      ),
+    );
+    notifyListeners();
+    _persist();
+  }
+
+  String _buildAiPrompt(Bouquet bouquet, AiPreviewStyle style) {
+    final counts = <String, int>{};
+    for (final flower in bouquet.flowers) {
+      counts[flower.nameEn] = (counts[flower.nameEn] ?? 0) + 1;
+    }
+    final flowerText =
+        counts.entries.map((e) => '${e.value} ${e.key}').join(', ');
+    final base =
+        '$flowerText, ${bouquet.ribbon.label} ribbon, ${bouquet.size.label.toLowerCase()} bouquet, elegant gift bouquet';
+    switch (style) {
+      case AiPreviewStyle.realistic:
+        return '$base, realistic fresh flower product photo, soft studio lighting, clean background';
+      case AiPreviewStyle.lego:
+        return '$base, LEGO brick-built flower bouquet, toy product photo, playful but premium, clean background';
+    }
   }
 
   void clearCart() {
