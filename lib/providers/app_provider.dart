@@ -237,11 +237,11 @@ class AppProvider extends ChangeNotifier {
 
   /// Serbest tasarla akışı: kullanıcının placed flower verilerini direkt kullan.
   void setPlacedFlowers(List<PlacedFlowerData> placed,
-      {String name = 'Tasarımım'}) {
+      {String name = 'Tasarımım', bool isFreeDesign = true}) {
     _placedFlowers = List.from(placed);
     _flowers = placed.map((p) => p.flower).toList();
     _inputName = name;
-    _isFreeDesign = true;
+    _isFreeDesign = isFreeDesign;
     _rebuildBouquet();
   }
 
@@ -742,6 +742,7 @@ class AppProvider extends ChangeNotifier {
     required String phone,
     required String email,
     String? giftMessage,
+    DateTime? deliveryDate,
   }) {
     if (_cart.isEmpty) return null;
     final snapshot = List<CartItem>.from(_cart);
@@ -753,6 +754,7 @@ class AppProvider extends ChangeNotifier {
       phone: phone,
       email: email,
       giftMessage: giftMessage,
+      deliveryDate: deliveryDate,
       createdAt: DateTime.now(),
       total: snapshot.fold(0.0, (s, it) => s + it.lineTotal),
     );

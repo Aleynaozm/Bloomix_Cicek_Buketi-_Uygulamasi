@@ -22,7 +22,14 @@ enum _PanelTab { layers, templates }
 class FreeDesignScreen extends StatefulWidget {
   /// Düzenleme modunda önceki çiçekler ile açılır.
   final List<PlacedFlowerData>? initialPlaced;
-  const FreeDesignScreen({super.key, this.initialPlaced});
+  final bool preserveName;
+  final bool keepAlphabetFlow;
+  const FreeDesignScreen({
+    super.key,
+    this.initialPlaced,
+    this.preserveName = false,
+    this.keepAlphabetFlow = false,
+  });
 
   @override
   State<FreeDesignScreen> createState() => _FreeDesignScreenState();
@@ -179,10 +186,19 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
   // ── Tamamla → BouquetBuilder ──────────────────────────────
   Future<void> _confirm() async {
     if (_placed.isEmpty) return;
+    if (!widget.keepAlphabetFlow && _placed.length < 5) {
+      _toast('Serbest tasarım için en az 5 çiçek seçmelisin.');
+      return;
+    }
+    if (widget.keepAlphabetFlow && _placed.length < 3) {
+      _toast('Çiçek alfabesi için en az 3 çiçek olmalı.');
+      return;
+    }
 
     // Seçimi kaldır, bir frame bekle, sonra canvas'ı yakala
     setState(() => _selectedId = null);
     await Future.microtask(() {});
+    if (!mounted) return;
 
     final prov = context.read<AppProvider>();
 
@@ -201,13 +217,31 @@ class _FreeDesignScreenState extends State<FreeDesignScreen> {
       prov.setDesignPreviewImage(null);
     }
 
-    prov.setPlacedFlowers(_placed, name: 'Tasarımım');
+    final name = widget.preserveName && prov.inputName.trim().isNotEmpty
+        ? prov.inputName
+        : 'Tasarımım';
+    prov.setPlacedFlowers(
+      _placed,
+      name: name,
+      isFreeDesign: !widget.keepAlphabetFlow,
+    );
     if (mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()),
       );
     }
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: const Color(0xFFE08020),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      content: Text(msg,
+          style: GoogleFonts.poppins(
+              color: Colors.white, fontWeight: FontWeight.w600)),
+    ));
   }
 
   @override

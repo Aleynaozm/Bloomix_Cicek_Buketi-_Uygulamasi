@@ -255,6 +255,7 @@ class LocalStorage {
               'phone': o.phone,
               'email': o.email,
               'giftMessage': o.giftMessage,
+              'deliveryDate': o.deliveryDate?.toIso8601String(),
               'status': o.status.index,
               'createdAt': o.createdAt.toIso8601String(),
               'total': o.total,
@@ -306,6 +307,9 @@ class LocalStorage {
               phone: j['phone'] as String,
               email: j['email'] as String,
               giftMessage: j['giftMessage'] as String?,
+              deliveryDate: j['deliveryDate'] != null
+                  ? DateTime.parse(j['deliveryDate'] as String)
+                  : null,
               status: OrderStatus.values[j['status'] as int? ?? 0],
               createdAt: DateTime.parse(j['createdAt'] as String),
               total: (j['total'] as num).toDouble(),

@@ -70,6 +70,47 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     FocusScope.of(context).unfocus();
   }
 
+  bool _ensureDesignNamed(AppProvider prov) {
+    if (!prov.isFreeDesign) return true;
+
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      _toast('Önce tasarımına bir isim ver.', bg: const Color(0xFFE08020));
+      return false;
+    }
+
+    if (!_named || prov.inputName != name) {
+      prov.updateBouquetName(name);
+      setState(() => _named = true);
+      FocusScope.of(context).unfocus();
+    }
+    return true;
+  }
+
+  void _toggleFavorite(AppProvider prov) {
+    if (!_ensureDesignNamed(prov)) return;
+    final bouquet = prov.currentBouquet;
+    if (bouquet == null) return;
+
+    final wasFavorite = prov.isFavorite(bouquet.id);
+    prov.toggleFavorite(bouquet);
+    _toast(wasFavorite ? 'Favorilerden çıkarıldı' : 'Favorilere eklendi 💖');
+  }
+
+  void _saveToCollection(AppProvider prov) {
+    if (!_ensureDesignNamed(prov)) return;
+    final bouquet = prov.currentBouquet;
+    if (bouquet == null) return;
+    SaveToCollectionSheet.show(context, bouquet);
+  }
+
+  void _handleAddToCart(AppProvider prov) {
+    if (!_ensureDesignNamed(prov)) return;
+    final bouquet = prov.currentBouquet;
+    if (bouquet == null) return;
+    _showAddToCartSheet(bouquet, prov);
+  }
+
   // ── Teslimat tarihi seçici ─────────────────────────────────
   Future<void> _pickDeliveryDate() async {
     final now = DateTime.now();
@@ -133,13 +174,6 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
 
   // ── Sepete ekle ────────────────────────────────────────────
   void _showAddToCartSheet(Bouquet bouquet, AppProvider prov) {
-    if (bouquet.flowers.length < 5) {
-      _toast(
-        'En az 5 çiçek gerekli. ${5 - bouquet.flowers.length} çiçek daha ekle.',
-        bg: const Color(0xFFE08020),
-      );
-      return;
-    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -223,22 +257,23 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           ),
           centerTitle: true,
           actions: [
-            // ✏ Düzenle (sadece serbest tasarımda)
-            if (isFreeDesign)
-              IconButton(
-                tooltip: 'Tasarımı Düzenle',
-                icon: const Icon(Icons.edit_rounded, color: AppColors.rose),
-                onPressed: () {
-                  Navigator.pushReplacement(
+            // ✏ Düzenle
+            IconButton(
+              tooltip: 'Buket Tasarla',
+              icon: const Icon(Icons.edit_rounded, color: AppColors.rose),
+              onPressed: () {
+                Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
                       builder: (_) => FreeDesignScreen(
                         initialPlaced: prov.placedFlowers.toList(),
+                        preserveName: true,
+                        keepAlphabetFlow: !isFreeDesign,
                       ),
                     ),
                   );
-                },
-              ),
+              },
+            ),
             // ❤ Favori
             IconButton(
               tooltip: isFavorite ? 'Favorilerden çıkar' : 'Favorile',
@@ -250,12 +285,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
               ),
               onPressed: bouquet == null
                   ? null
-                  : () {
-                      prov.toggleFavorite(bouquet);
-                      _toast(isFavorite
-                          ? 'Favorilerden çıkarıldı'
-                          : 'Favorilere eklendi 💖');
-                    },
+                  : () => _toggleFavorite(prov),
             ),
             // 💾 Koleksiyon
             IconButton(
@@ -264,7 +294,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                   color: AppColors.rose),
               onPressed: bouquet == null
                   ? null
-                  : () => SaveToCollectionSheet.show(context, bouquet),
+                  : () => _saveToCollection(prov),
             ),
             // 📤 Paylaş
             IconButton(
@@ -479,7 +509,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                     icon: Icons.add_shopping_cart_rounded,
                     onPressed: bouquet == null
                         ? null
-                        : () => _showAddToCartSheet(bouquet, prov),
+                        : () => _handleAddToCart(prov),
                   ),
                 ]),
               ),

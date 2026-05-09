@@ -394,6 +394,7 @@ class Order {
   final String phone;
   final String email;
   final String? giftMessage;
+  final DateTime? deliveryDate;
   final OrderStatus status;
   final DateTime createdAt;
   final double total;
@@ -409,6 +410,7 @@ class Order {
     required this.phone,
     required this.email,
     this.giftMessage,
+    this.deliveryDate,
     this.status = OrderStatus.confirmed,
     required this.createdAt,
     required this.total,

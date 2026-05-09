@@ -51,6 +51,17 @@ class _NameInputScreenState extends State<NameInputScreen> {
   void _go() {
     final cleaned = _ctrl.text.trim();
     if (cleaned.isEmpty) return;
+    if (getFlowersForName(cleaned).length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFFE08020),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Text('Çiçek alfabesi için en az 3 çiçek oluşmalı.',
+            style: GoogleFonts.poppins(
+                color: Colors.white, fontWeight: FontWeight.w600)),
+      ));
+      return;
+    }
     context.read<AppProvider>().generateBouquet(cleaned);
     Navigator.push(context,
         MaterialPageRoute(builder: (_) => const BouquetBuilderScreen()));
