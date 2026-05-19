@@ -35,14 +35,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       fallbackEmoji: '🧱',
       title: 'Lego Dünyasına Dönüştür',
       body:
-          'Tasarladığın buketi tek tıkla ikonik Lego parçalarına dönüştür ve dijital bahçeni inşa etmeye başla.',
+          'Tasarımını taze çiçek olarak sipariş verebilir veya koleksiyonluk bir LEGO bukete dönüştürebilirsin',
     ),
     _OnboardData(
       image: 'assets/images/onboarding_3.png',
       fallbackEmoji: '🌸',
-      title: 'Koleksiyonuna Ekle ve Sahip Ol',
+      title: 'AI ile Önizle',
       body:
-          'Hiç solmayan bu özel tasarımı dijital galerinde sergile veya gerçek hayatta sahip olmak için hemen sipariş ver.',
+          'Satın almadan önce tasarımının gerçek hayatta nasıl duracağını yapay zeka ile inceleyebilirsin.',
     ),
   ];
 
