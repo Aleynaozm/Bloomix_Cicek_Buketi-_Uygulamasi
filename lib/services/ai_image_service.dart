@@ -26,6 +26,8 @@ class AiImageService {
         'flowers': _flowerCounts(bouquet),
         'ribbon': bouquet.ribbon.label,
         'size': bouquet.size.label,
+        'template': bouquet.template.name,
+        'flowerLayout': _flowerLayout(bouquet),
       },
     );
 
@@ -57,5 +59,16 @@ class AiImageService {
       counts[flower.nameTr] = (counts[flower.nameTr] ?? 0) + 1;
     }
     return counts;
+  }
+
+  static List<Map<String, dynamic>> _flowerLayout(Bouquet bouquet) {
+    return bouquet.placedFlowers
+        .map((placed) => {
+              'flower': placed.flower.nameTr,
+              'x': placed.position.dx.toStringAsFixed(2),
+              'y': placed.position.dy.toStringAsFixed(2),
+              'scale': placed.scale.toStringAsFixed(2),
+            })
+        .toList();
   }
 }
